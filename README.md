@@ -8,7 +8,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A unified, production-grade academic management ecosystem seamlessly bridging **Telegram-based student submissions** with a **reactive Proportional Grading Web Application** and a **Watermelon UI Telegram Mini App (TMA)** for course instructors and Teaching Assistants.
+A unified, production-grade academic management ecosystem seamlessly bridging **Telegram-based student submissions** with a **reactive Proportional Grading Web Application** and an **Adaptive Touch-Optimized Telegram Mini App (TMA)** for course instructors and Teaching Assistants.
 
 ---
 
@@ -19,7 +19,7 @@ A unified, production-grade academic management ecosystem seamlessly bridging **
    - [Telegram Homework Collector & TMA Admin Hub](#1-telegram-homework-collector--tma-admin-hub)
    - [Grade Flow Web Application & Proportional Engine](#2-grade-flow-web-application--proportional-engine)
    - [Unified Supabase PostgreSQL Data Layer](#3-unified-supabase-postgresql-data-layer)
-4. [Watermelon Design System](#-watermelon-design-system)
+4. [Adaptive UI Design System](#-adaptive-dark-mode-design-system)
 5. [Data Contracts & Schema Mapping](#-data-contracts--schema-mapping)
 6. [Quickstart & Local Development](#-quickstart--local-development)
 7. [Running Test Suites](#-running-test-suites)
@@ -34,27 +34,27 @@ The ecosystem eliminates fragmented spreadsheets and manual grading reconciliati
 
 ```mermaid
 flowchart TD
-    subgraph Telegram_Ecosystem ["Telegram Ecosystem"]
-        S["👨‍🎓 Students"] -->|Direct Messages / Commands| B["🤖 Telegram Homework Collector Bot<br/>(python-telegram-bot + FastAPI)"]
-        TA["👩‍🏫 Teaching Assistants"] -->|Telegram Mini App (TMA)| TMA["🍉 TA Control Hub<br/>(Watermelon UI Mini App)"]
-        B -->|Forward Submissions| AG["📁 Telegram Supergroup Forum<br/>(HW1..HW5 Dedicated Topics)"]
+    subgraph Telegram_Ecosystem [Telegram Ecosystem]
+        S[Students] -->|Direct Messages / Commands| B[Telegram Homework Collector Bot]
+        TA[Teaching Assistants] -->|Telegram Mini App| TMA[TA Control Hub TMA]
+        B -->|Forward Submissions| AG[Telegram Supergroup Archive]
     end
 
-    subgraph Data_Layer ["Unified Persistence (Supabase PostgreSQL)"]
-        DB[("🐘 PostgreSQL Database<br/>- public.users<br/>- public.students<br/>- public.submissions<br/>- public.grades<br/>- public.assignments")]
-        VIEW["👁️ student_grades_roster<br/>(Consolidated Reporting View)"]
+    subgraph Data_Layer [Unified Persistence - Supabase PostgreSQL]
+        DB[(PostgreSQL Database)]
+        VIEW[student_grades_roster View]
         DB --- VIEW
     end
 
-    subgraph Web_Ecosystem ["Web Grading & Analytics"]
-        GF["⚡ Grade Flow Web App<br/>(React 18 + Vite + TypeScript)"]
-        ENG["📐 Proportional Grading Engine<br/>(Linear Curves, Weighting, Grouping)"]
+    subgraph Web_Ecosystem [Web Grading and Analytics]
+        GF[Grade Flow Web App]
+        ENG[Proportional Grading Engine]
         GF --- ENG
     end
 
-    B <-->|Direct SQL / Async Connection| DB
+    B <-->|Direct SQL Connection| DB
     TMA <-->|REST API / Session Auth| B
-    GF <-->|Supabase JS SDK + Strict RLS| DB
+    GF <-->|Supabase JS SDK / RLS| DB
 ```
 
 ---
@@ -71,7 +71,7 @@ Bot & Grade Flow/
 │   ├── api/
 │   │   └── index.py             # Serverless Vercel FastAPI handler
 │   ├── templates/
-│   │   ├── tma_app.html         # Watermelon UI Telegram Mini App frontend
+│   │   ├── tma_app.html         # Adaptive Touch-Optimized TMA frontend
 │   │   ├── db_students_template.csv
 │   │   └── db_submissions_template.csv
 │   ├── tests/
@@ -101,7 +101,7 @@ Bot & Grade Flow/
 │   │   ├── types/               # TypeScript interfaces & domain models
 │   │   ├── utils/               # Proportional grading calculation engine
 │   │   ├── App.tsx              # Root application router
-│   │   ├── index.css            # Watermelon UI Tailwind CSS tokens
+│   │   ├── index.css            # Dark Mode Design System Tokens
 │   │   └── main.tsx             # React DOM entrypoint
 │   ├── index.html               # Web HTML entrypoint
 │   ├── package.json             # NPM package definitions
@@ -133,7 +133,7 @@ Bot & Grade Flow/
 - **Conversational Student Registration:** Validates student ID against official roster, enforces shared course registration password, records Telegram Chat ID, and detects duplicate registrations.
 - **Submission Pipeline:** Accepts single or batch PDF/ZIP documents, validates file extensions, hashes file contents to detect duplicates, applies server-side timestamps in Asia/Tehran timezone, and automatically forwards submissions to the course Archive Supergroup in assignment-specific forum topics (HW1–HW5).
 - **Edit & Resubmission Window:** Allows students to update their submissions before the hard deadline, maintaining an immutable edit count and audit trail.
-- **Watermelon UI Telegram Mini App (`/admin`):**
+- **Adaptive Telegram Mini App (`/admin`):**
   - **Adaptive Dual-Mode Layout:** Mobile devices default to high-density, touch-optimized **Student Cards** with compact HW status pills; desktop viewports default to an interactive **Matrix Table** with sticky header and name column.
   - **Comprehensive TA Actions:** Direct in-app broadcast messaging (individual or course-wide), account unlock for locked registrations, live Tehran server time synchronization, and submission counts per assignment.
   - **Direct Mobile Browser Access:** Fully functional inside Telegram or directly in external mobile browsers via token authentication (`?token=` or prompt button).
@@ -160,21 +160,21 @@ Bot & Grade Flow/
 
 ---
 
-## 🍉 Watermelon Design System
+## 🎨 Adaptive Dark Mode Design System
 
-Both the Grade Flow web app and the Telegram Mini App implement the **Watermelon Design System**—a high-contrast, modern dark aesthetic inspired by reactive minimalist dashboards:
+Both the Grade Flow web app and the Telegram Mini App implement a unified, modern dark design system—combining high-contrast glassmorphism with an obsidian-and-emerald palette for reactive dashboards:
 
 | Token | Hex Value | Purpose |
 | :--- | :--- | :--- |
-| `--wm-bg` | `#080c14` | Deep Obsidian background canvas |
-| `--wm-canvas` | `#0c121e` | Secondary canvas backing |
-| `--wm-surface` | `#10192a` | Elevated cards, sidebars, and panels |
-| `--wm-green` | `#10b981` | Emerald Rind accent for success, active tabs, and primary CTAs |
-| `--wm-green-glow` | `rgba(16, 185, 129, 0.22)` | Vibrant emerald focus and active button glows |
-| `--wm-pink` | `#f43f5e` | Juicy Coral Flesh accent for alerts, errors, and danger actions |
-| `--wm-pink-glow` | `rgba(244, 63, 94, 0.22)` | Coral shadow glows for destructive modal triggers |
-| `--wm-cyan` | `#38bdf8` | Informational badges and monospace code highlights |
-| `--wm-amber` | `#f59e0b` | Warnings and pending submission state |
+| `--theme-bg` | `#080c14` | Deep Obsidian background canvas |
+| `--theme-canvas` | `#0c121e` | Secondary canvas backing |
+| `--theme-surface` | `#10192a` | Elevated cards, sidebars, and panels |
+| `--theme-emerald` | `#10b981` | Emerald accent for success, active tabs, and primary CTAs |
+| `--theme-emerald-glow` | `rgba(16, 185, 129, 0.22)` | Vibrant emerald focus and active button glows |
+| `--theme-coral` | `#f43f5e` | Crimson Coral accent for alerts, errors, and danger actions |
+| `--theme-coral-glow` | `rgba(244, 63, 94, 0.22)` | Coral shadow glows for destructive modal triggers |
+| `--theme-cyan` | `#38bdf8` | Informational badges and monospace code highlights |
+| `--theme-amber` | `#f59e0b` | Warnings and pending submission state |
 
 **Mobile Touch Ergonomics:**
 - iOS Safari and Android Chrome double-tap zoom delay eliminated via `touch-action: manipulation`.
