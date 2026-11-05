@@ -1,0 +1,18 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+.vercel
+firebase-applet-config.json
+*.cjs
+*.py
+
+# Credentials & Student Data Exports (Strict Local Only)
+*.csv
+*.xlsx
+credentials/
+private_*

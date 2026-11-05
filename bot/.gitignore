@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+homework.db
+students.csv
+admin_credentials.csv
+STUDENT_CREDENTIALS.md
+backups/
+versions/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+.vercel/

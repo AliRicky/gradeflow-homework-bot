@@ -1,0 +1,69 @@
+# ══════════════════════════════════════════════════════════════════════
+# CLEAN PUBLIC REPO DOCTRINE .gitignore
+# Guaranteed zero secret leaks & sanitized publication standards
+# ══════════════════════════════════════════════════════════════════════
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+*.pem
+*.key
+credentials/
+admin_credentials.csv
+students.csv
+*credentials*.csv
+*credentials*.md
+STUDENT_CREDENTIALS.md
+
+# Local Databases, SQLite dumps & live state
+*.db
+*.sqlite
+*.sqlite3
+homework.db
+backups/
+versions/
+archives/
+*.sql.bak
+
+# Node & Frontend dependencies / build output
+node_modules/
+dist/
+build/
+out/
+.vercel/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python caches & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.eggs/
+venv/
+.venv/
+env/
+
+# Operating System & IDE
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agents/
+memory/

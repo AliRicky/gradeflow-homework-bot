@@ -1,0 +1,24 @@
+{
+  "name": "gradeflow-homework-bot",
+  "version": "1.0.0",
+  "description": "Unified Educational Platform: Grade Flow Proportional Grading App & Telegram Homework Collector Bot",
+  "private": true,
+  "scripts": {
+    "dev:gradeflow": "cd grade-flow && npm run dev",
+    "build:gradeflow": "cd grade-flow && npm run build",
+    "test:gradeflow": "cd grade-flow && npm test",
+    "test:bot": "cd bot && pytest tests"
+  },
+  "keywords": [
+    "gradeflow",
+    "telegram-bot",
+    "education",
+    "grading-system",
+    "tma",
+    "supabase",
+    "react",
+    "fastapi"
+  ],
+  "author": "Ali Ricky",
+  "license": "MIT"
+}

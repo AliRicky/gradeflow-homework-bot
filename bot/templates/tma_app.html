@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#080c14" />
+  <title>TA Control Hub | Telegram Mini App</title>
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+  <style>
+    /* ══════════════════════════════════════════════════════════════════════
+       WATERMELON DESIGN SYSTEM & THEME TOKENS
+       Inspired by Watermelon DB / modern reactive minimalist aesthetic
+       ══════════════════════════════════════════════════════════════════════ */
+    :root {
+      /* Watermelon Palette */
+      --wm-bg: #080c14;
+      --wm-canvas: #0c121e;
+      --wm-surface: #10192a;
+      --wm-surface-hover: #172338;
+      --wm-surface-card: rgba(16, 25, 42, 0.78);
+      --wm-surface-glass: rgba(12, 18, 30, 0.85);
+
+      /* Accents: Watermelon Mint Rind & Juicy Coral Flesh */
+      --wm-green: #10b981;
+      --wm-green-hover: #059669;
+      --wm-green-glow: rgba(16, 185, 129, 0.22);
+      --wm-green-dim: rgba(16, 185, 129, 0.12);
+
+      --wm-pink: #f43f5e;
+      --wm-pink-hover: #e11d48;
+      --wm-pink-glow: rgba(244, 63, 94, 0.22);
+      --wm-pink-dim: rgba(244, 63, 94, 0.12);
+
+      --wm-cyan: #38bdf8;
+      --wm-amber: #f59e0b;
+
+      /* Neutral & Borders */
+      --wm-border: rgba(255, 255, 255, 0.08);
+      --wm-border-strong: rgba(255, 255, 255, 0.14);
+      --wm-border-glow: rgba(16, 185, 129, 0.35);
+
+      /* Typography */
+      --text: #f8fafc;
+      --text-sec: #94a3b8;
+      --text-muted: #64748b;
+      --hint: #94a3b8;
+
+      /* UI Radii & Safe Area Metrics */
+      --card-radius: 16px;
+      --pill-radius: 9999px;
+      --btn-radius: 12px;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 16px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+
+      /* Legacy compatibility mappings */
+      --bg: var(--wm-bg);
+      --sec-bg: var(--wm-surface);
+      --card-bg: var(--wm-surface-card);
+      --btn: var(--wm-green);
+      --btn-text: #022c22;
+      --danger: var(--wm-pink);
+      --success: var(--wm-green);
+      --warning: var(--wm-amber);
+      --border: var(--wm-border);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", Helvetica, Arial, sans-serif;
+    }
+
+    button, input, select, textarea, a, .filter-pill, .view-btn, .tab-btn, .hw-pill, .tool-btn {
+      touch-action: manipulation;
+    }
+
+    body {
+      background: var(--wm-bg);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 55%),
+        radial-gradient(circle at 85% 30%, rgba(244, 63, 94, 0.04) 0%, transparent 45%);
+      background-attachment: fixed;
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding-bottom: max(36px, calc(var(--safe-bottom) + 20px));
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      touch-action: pan-y;
+      overscroll-behavior-y: none;
+    }
+
+    /* Monospace Tabular Figures */
+    .font-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Responsive App Container */
+    .app-container {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    @media (min-width: 768px) {
+      .app-container {
+        padding: 0 24px;
+      }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       TOP APP BAR / HEADER
+       ══════════════════════════════════════════════════════════════════════ */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--wm-surface-glass);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--wm-border);
+      padding: max(12px, var(--safe-top)) 16px 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: border-color 0.2s ease;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      font-size: 22px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(244, 63, 94, 0.15) 100%);
+      border: 1px solid var(--wm-border-strong);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-tag {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 6px;
+      border-radius: var(--pill-radius);
+      background: var(--wm-green-dim);
+      color: var(--wm-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-sec);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .admin-pill {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 6px 12px;
+      border-radius: var(--pill-radius);
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--wm-border);
+      min-height: 34px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--wm-green);
+      box-shadow: 0 0 8px var(--wm-green);
+      animation: pulseDot 2s infinite ease-in-out;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       DIAGNOSTIC / AUTH NOTICE BANNER
+       ══════════════════════════════════════════════════════════════════════ */
+    .notice-banner {
+      background: rgba(244, 63, 94, 0.12);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+      color: #fda4af;
+      padding: 12px 16px;
+      margin: 12px auto;
+      border-radius: var(--card-radius);
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .notice-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+    }
+
+    .notice-btn {
+      align-self: flex-start;
+      margin-top: 4px;
+      background: var(--wm-pink);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       SEGMENTED TAB NAVIGATION (iOS / Modern Pill Style)
+       ══════════════════════════════════════════════════════════════════════ */
+    .tab-bar {
+      display: flex;
+      background: var(--wm-surface-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      margin: 14px 0 16px 0;
+      padding: 4px;
+      border-radius: var(--pill-radius);
+      border: 1px solid var(--wm-border);
+      gap: 4px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-height: 40px;
+      padding: 8px 12px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      color: var(--text-sec);
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: var(--pill-radius);
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .tab-btn:active {
+      transform: scale(0.97);
+    }
+
+    .tab-btn.active {
+      background: var(--wm-green);
+      color: #022c22;
+      font-weight: 700;
+      box-shadow: 0 2px 10px var(--wm-green-glow);
+    }
+
+    /* Tab Content Panes */
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.22s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       METRIC CARDS (Watermelon Glassmorphism)
+       ══════════════════════════════════════════════════════════════════════ */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 768px) {
+      .metrics-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+    }
+
+    .metric-card {
+      background: var(--wm-surface-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 14px;
+      border-radius: var(--card-radius);
+      border: 1px solid var(--wm-border);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    }
+
+    .metric-card.accent-green::before {
+      background: linear-gradient(90deg, transparent, var(--wm-green), transparent);
+    }
+
+    .metric-card.accent-pink::before {
+      background: linear-gradient(90deg, transparent, var(--wm-pink), transparent);
+    }
+
+    .metric-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .metric-title {
+      font-size: 11px;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .metric-icon {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    .metric-value {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       HOMEWORK BREAKDOWN CHIPS BAR
+       ══════════════════════════════════════════════════════════════════════ */
+    .hw-summary-bar {
+      background: var(--wm-surface-card);
+      padding: 14px;
+      border-radius: var(--card-radius);
+      border: 1px solid var(--wm-border);
+      margin-bottom: 16px;
+    }
+
+    .hw-summary-header {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sec);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hw-chips {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+    }
+
+    .hw-chip {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 8px 4px;
+      text-align: center;
+      border: 1px solid var(--wm-border);
+      transition: all 0.2s ease;
+    }
+
+    .hw-chip:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--wm-border-strong);
+    }
+
+    .hw-chip-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .hw-chip-count {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--wm-green);
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       FILTER & SEARCH TOOLBAR
+       ══════════════════════════════════════════════════════════════════════ */
+    .filter-card {
+      background: var(--wm-surface-card);
+      border-radius: var(--card-radius);
+      border: 1px solid var(--wm-border);
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+      font-size: 14px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--wm-border);
+      color: var(--text);
+      padding: 11px 12px 11px 36px;
+      border-radius: var(--btn-radius);
+      font-size: 16px !important; /* Preempt iOS auto-zoom */
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--wm-green);
+      box-shadow: 0 0 0 3px var(--wm-green-glow);
+    }
+
+    .chips-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .chips-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .filter-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--wm-border);
+      color: var(--text-sec);
+      padding: 6px 12px;
+      border-radius: var(--pill-radius);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      min-height: 32px;
+    }
+
+    .filter-chip:active {
+      transform: scale(0.96);
+    }
+
+    .filter-chip.active {
+      background: var(--wm-green-dim);
+      color: var(--wm-green);
+      border-color: var(--wm-green);
+      font-weight: 700;
+    }
+
+    /* View Switcher Bar (Mobile Cards vs Desktop Table) */
+    .view-control-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--wm-border);
+      font-size: 12px;
+      color: var(--text-sec);
+    }
+
+    .view-toggles {
+      display: flex;
+      gap: 4px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px;
+      border-radius: var(--pill-radius);
+      border: 1px solid var(--wm-border);
+    }
+
+    .view-toggle-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-sec);
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: var(--pill-radius);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .view-toggle-btn.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       MOBILE STUDENT CARDS (Mobile-First Ergonomic Roster View)
+       ══════════════════════════════════════════════════════════════════════ */
+    .mobile-cards-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .student-card {
+      background: var(--wm-surface-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: var(--card-radius);
+      border: 1px solid var(--wm-border);
+      padding: 14px;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .student-card:active {
+      border-color: var(--wm-border-strong);
+    }
+
+    .student-card.is-locked {
+      border-color: rgba(244, 63, 94, 0.4);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.05) 0%, rgba(16, 25, 42, 0.8) 100%);
+    }
+
+    .sc-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sc-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .sc-id {
+      font-size: 11px;
+      color: var(--text-sec);
+      margin-top: 2px;
+      font-family: ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 5-Homework Compact Strip */
+    .sc-hw-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+    }
+
+    .sc-hw-pill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--wm-border);
+      border-radius: 8px;
+      padding: 6px 2px;
+      text-align: center;
+      font-size: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-height: 42px;
+      justify-content: center;
+    }
+
+    .sc-hw-pill.sub {
+      background: var(--wm-green-dim);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: var(--wm-green);
+    }
+
+    .sc-hw-pill.missing {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+    }
+
+    .sc-hw-num {
+      font-weight: 700;
+      font-size: 9px;
+      text-transform: uppercase;
+      opacity: 0.8;
+    }
+
+    .sc-hw-status {
+      font-weight: 800;
+      font-size: 11px;
+    }
+
+    .sc-hw-grade {
+      font-size: 9px;
+      font-weight: 800;
+      background: rgba(16, 185, 129, 0.25);
+      padding: 1px 4px;
+      border-radius: 4px;
+      margin-top: 1px;
+      color: #34d399;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sc-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .sc-stats {
+      font-size: 11px;
+      color: var(--text-sec);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sc-inspect-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--wm-border);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .sc-inspect-btn:active {
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       DESKTOP MATRIX TABLE
+       ══════════════════════════════════════════════════════════════════════ */
+    .table-container {
+      overflow-x: auto;
+      border-radius: var(--card-radius);
+      border: 1px solid var(--wm-border);
+      background: var(--wm-surface-card);
+      margin-bottom: 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background: rgba(10, 15, 26, 0.95);
+      backdrop-filter: blur(8px);
+      padding: 12px 14px;
+      font-weight: 700;
+      font-size: 11px;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--wm-border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    /* Sticky student identity column for horizontal table scroll */
+    @media (max-width: 900px) {
+      .sticky-col {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #0d1524 !important;
+        box-shadow: 2px 0 6px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: var(--pill-radius);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge-sub {
+      background: var(--wm-green-dim);
+      color: var(--wm-green);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .badge-missing {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      border: 1px solid var(--wm-border);
+    }
+
+    .badge-locked {
+      background: var(--wm-pink-dim);
+      color: var(--wm-pink);
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    .badge-ok {
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--wm-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       TAB 1: BROADCAST CONSOLE
+       ══════════════════════════════════════════════════════════════════════ */
+    .card {
+      background: var(--wm-surface-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: var(--card-radius);
+      border: 1px solid var(--wm-border);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      letter-spacing: -0.2px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sec);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    select, textarea, input[type="text"] {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--wm-border);
+      color: var(--text);
+      padding: 12px 14px;
+      border-radius: var(--btn-radius);
+      font-size: 16px !important; /* Preempt mobile auto-zoom */
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    select:focus, textarea:focus, input[type="text"]:focus {
+      border-color: var(--wm-green);
+      box-shadow: 0 0 0 3px var(--wm-green-glow);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 120px;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+
+    .field-hint {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 5px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tool-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--wm-border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      min-height: 32px;
+      font-weight: 600;
+      transition: background 0.15s ease;
+    }
+
+    .tool-btn:active {
+      transform: scale(0.96);
+    }
+
+    .preview-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px dashed var(--wm-border);
+      padding: 14px;
+      border-radius: var(--btn-radius);
+      font-size: 13px;
+      min-height: 60px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+    }
+
+    .preview-box code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: ui-monospace, monospace;
+      color: var(--wm-cyan);
+    }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--wm-green) 0%, var(--wm-green-hover) 100%);
+      color: #022c22;
+      border: none;
+      padding: 14px 20px;
+      border-radius: var(--btn-radius);
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px var(--wm-green-glow);
+      transition: all 0.15s ease;
+      min-height: 48px;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 6px var(--wm-green-glow);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--wm-pink) 0%, var(--wm-pink-hover) 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 16px;
+      border-radius: var(--btn-radius);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+      box-shadow: 0 4px 12px var(--wm-pink-glow);
+    }
+
+    .btn-danger:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--wm-border);
+      padding: 10px 14px;
+      border-radius: var(--btn-radius);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 44px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.98);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Delivery Report Box */
+    .report-box {
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: var(--btn-radius);
+      border: 1px solid var(--wm-border);
+      padding: 14px;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+
+    .report-stat {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .report-stat.success { color: var(--wm-green); font-weight: 700; }
+    .report-stat.failed { color: var(--wm-pink); font-weight: 700; }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       TAB 3: STUDENT MANAGEMENT & RESET PROFILE
+       ══════════════════════════════════════════════════════════════════════ */
+    .profile-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--wm-border);
+      padding-bottom: 14px;
+      margin-bottom: 14px;
+    }
+
+    .profile-name {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .profile-id {
+      font-size: 13px;
+      color: var(--text-sec);
+      font-family: ui-monospace, monospace;
+      margin-top: 2px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+    }
+
+    .info-label {
+      color: var(--text-sec);
+      font-weight: 500;
+    }
+
+    .info-val {
+      font-weight: 600;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════════
+       MODALS & BOTTOM SHEETS (Ergonomic Mobile / Desktop)
+       ══════════════════════════════════════════════════════════════════════ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-card {
+      background: var(--wm-surface);
+      border: 1px solid var(--wm-border-strong);
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      max-height: 85vh;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    /* Mobile Sheet Adaptation */
+    @media (max-width: 600px) {
+      .modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+      }
+
+      .modal-card {
+        max-width: 100%;
+        border-radius: 24px 24px 0 0;
+        padding: 16px 20px calc(24px + var(--safe-bottom)) 20px;
+        animation: sheetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      @keyframes sheetSlideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: var(--pill-radius);
+      margin: 0 auto 16px auto;
+    }
+
+    @media (min-width: 601px) {
+      .sheet-handle { display: none; }
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.3px;
+    }
+
+    .modal-body {
+      font-size: 14px;
+      color: var(--text-sec);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: max(24px, calc(var(--safe-bottom) + 12px));
+      left: 50%;
+      transform: translateX(-50%) translateY(120px);
+      background: rgba(16, 25, 42, 0.95);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 12px 22px;
+      border-radius: var(--pill-radius);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--wm-green);
+      z-index: 150;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <span class="brand-icon">🍉</span>
+      <div>
+        <div class="brand-title">
+          <span>TA Control Hub</span>
+          <span class="brand-tag">v2.1</span>
+        </div>
+        <div class="brand-sub">
+          <span>🕒</span>
+          <span id="headerTehranTime">Loading Tehran Time...</span>
+        </div>
+      </div>
+    </div>
+    <div class="admin-pill">
+      <span class="status-dot"></span>
+      <span id="adminName">Admin</span>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Auth Diagnostic Notice Banner (unhides on auth error) -->
+    <div id="authNoticeBanner" class="notice-banner" style="display: none;">
+      <div class="notice-header">
+        <span>⚠️</span>
+        <span>Authorization Notice</span>
+      </div>
+      <div id="authNoticeText">Unable to authenticate session.</div>
+      <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+        <button onclick="startApp()" class="notice-btn" style="flex: 1; min-width: 140px;">🔄 Retry Connection</button>
+        <button onclick="promptAccessKey()" class="notice-btn" style="flex: 1; min-width: 140px; background: rgba(56, 189, 248, 0.15); border-color: var(--wm-cyan); color: var(--wm-cyan);">🔑 Enter Access Key</button>
+      </div>
+    </div>
+
+    <!-- Segmented Navigation Tabs -->
+    <nav class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('roster')">📊 Matrix</button>
+      <button class="tab-btn" onclick="switchTab('broadcast')">📢 Broadcast</button>
+      <button class="tab-btn" onclick="switchTab('students')">👤 Students</button>
+    </nav>
+
+    <!-- TAB 1: ROSTER & SUBMISSION MATRIX (Default Active Landing Tab) -->
+    <main id="tab-roster" class="tab-content active">
+      <!-- Quick Metrics Grid -->
+      <div class="metrics-grid">
+        <div class="metric-card accent-green">
+          <div class="metric-header">
+            <span class="metric-title">Enrolled Roster</span>
+            <span class="metric-icon">👥</span>
+          </div>
+          <div class="metric-value" id="metricEnrolled">—</div>
+          <div class="metric-sub">Total students in course</div>
+        </div>
+        <div class="metric-card accent-green">
+          <div class="metric-header">
+            <span class="metric-title">Registered in Bot</span>
+            <span class="metric-icon">✓</span>
+          </div>
+          <div class="metric-value" id="metricRegistered">—</div>
+          <div class="metric-sub" id="metricRegisteredPct">—% adoption</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-title">Submissions</span>
+            <span class="metric-icon">📝</span>
+          </div>
+          <div class="metric-value" id="metricTotalSubmissions">—</div>
+          <div class="metric-sub">Across all HWs</div>
+        </div>
+        <div class="metric-card accent-pink">
+          <div class="metric-header">
+            <span class="metric-title">Locked Accounts</span>
+            <span class="metric-icon">🔒</span>
+          </div>
+          <div class="metric-value" id="metricLocked" style="color: var(--wm-pink);">—</div>
+          <div class="metric-sub">Auth failure lockouts</div>
+        </div>
+      </div>
+
+      <!-- HW Submission Breakdown Chips -->
+      <div class="hw-summary-bar">
+        <div class="hw-summary-header">
+          <span>Submission Counts per Assignment</span>
+          <span style="font-size: 11px; color: var(--wm-green);">● Live Database</span>
+        </div>
+        <div class="hw-chips" id="hwChipsBar">
+          <div class="hw-chip"><div class="hw-chip-title">HW 1</div><div class="hw-chip-count" id="chipHw1">0</div></div>
+          <div class="hw-chip"><div class="hw-chip-title">HW 2</div><div class="hw-chip-count" id="chipHw2">0</div></div>
+          <div class="hw-chip"><div class="hw-chip-title">HW 3</div><div class="hw-chip-count" id="chipHw3">0</div></div>
+          <div class="hw-chip"><div class="hw-chip-title">HW 4</div><div class="hw-chip-count" id="chipHw4">0</div></div>
+          <div class="hw-chip"><div class="hw-chip-title">HW 5</div><div class="hw-chip-count" id="chipHw5">0</div></div>
+        </div>
+      </div>
+
+      <!-- Search & Filter Controls -->
+      <div class="filter-card">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="rosterSearch" class="search-input" placeholder="Search by student ID or name..." oninput="filterRoster()" />
+        </div>
+        <div class="chips-row">
+          <button class="filter-chip active" onclick="setRosterFilter('all', this)">All Students</button>
+          <button class="filter-chip" onclick="setRosterFilter('registered', this)">Registered Only</button>
+          <button class="filter-chip" onclick="setRosterFilter('missing', this)">Missing Submissions</button>
+          <button class="filter-chip" onclick="setRosterFilter('locked', this)">Locked Out</button>
+        </div>
+
+        <!-- Adaptive View Mode Switcher -->
+        <div class="view-control-bar">
+          <span id="rosterResultsCount">Loading students...</span>
+          <div class="view-toggles">
+            <button class="view-toggle-btn active" id="btnViewCards" onclick="setViewMode('cards')">📱 Cards</button>
+            <button class="view-toggle-btn" id="btnViewTable" onclick="setViewMode('table')">📊 Table</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Cards Container (Default for Mobile Viewports) -->
+      <div id="rosterCardsContainer" class="mobile-cards-grid">
+        <div style="text-align: center; color: var(--hint); padding: 30px;">
+          ⏳ Loading course roster & submissions...
+        </div>
+      </div>
+
+      <!-- Desktop Matrix Table Container (Default for Desktop Viewports) -->
+      <div id="rosterTableContainer" class="table-container" style="display: none;">
+        <table>
+          <thead>
+            <tr>
+              <th class="sticky-col">Student</th>
+              <th>Status</th>
+              <th>HW1</th>
+              <th>HW2</th>
+              <th>HW3</th>
+              <th>HW4</th>
+              <th>HW5</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="rosterTableBody">
+            <tr><td colspan="8" style="text-align: center; color: var(--hint); padding: 24px;">Loading roster data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+    <!-- TAB 2: BROADCAST CONSOLE -->
+    <main id="tab-broadcast" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <span>📢 Broadcast Announcement</span>
+          <span class="badge badge-ok" id="recipientCountBadge">Audience: ...</span>
+        </div>
+
+        <!-- Target Selection -->
+        <div class="form-group">
+          <label for="broadcastTarget">Recipient Target</label>
+          <select id="broadcastTarget" onchange="onTargetChange()">
+            <option value="all">👥 All Registered Students</option>
+            <option value="missing_1">⚠️ Missing HW 1</option>
+            <option value="missing_2">⚠️ Missing HW 2</option>
+            <option value="missing_3">⚠️ Missing HW 3</option>
+            <option value="missing_4">⚠️ Missing HW 4</option>
+            <option value="missing_5">⚠️ Missing HW 5</option>
+            <option value="single">🎯 Single Student</option>
+          </select>
+        </div>
+
+        <!-- Single Student Selector (Hidden by default) -->
+        <div class="form-group" id="singleStudentGroup" style="display: none;">
+          <label for="singleStudentSelect">Select Student</label>
+          <select id="singleStudentSelect" onchange="updateRecipientBadge()">
+            <option value="">-- Choose student from roster --</option>
+          </select>
+        </div>
+
+        <!-- Quick Template Selector -->
+        <div class="form-group">
+          <label for="templateSelect">Quick Template</label>
+          <select id="templateSelect" onchange="applyTemplate()">
+            <option value="">-- Choose message template --</option>
+            <option value="deadline">⏰ HW Deadline Reminder (24 Hours Remaining)</option>
+            <option value="missing">⚠️ Missing Submission Alert</option>
+            <option value="office_hours">💬 TA Office Hours & Q&A</option>
+            <option value="receipt">✅ Homework Verification Complete</option>
+          </select>
+        </div>
+
+        <!-- Message Textarea -->
+        <div class="form-group">
+          <label for="broadcastMessage">Message Content (Markdown Supported)</label>
+          <div class="toolbar">
+            <button type="button" class="tool-btn" onclick="insertFormat('*', '*')"><b>B</b> Bold</button>
+            <button type="button" class="tool-btn" onclick="insertFormat('_', '_')"><i>I</i> Italic</button>
+            <button type="button" class="tool-btn" onclick="insertFormat('`', '`')"><code>Code</code></button>
+            <button type="button" class="tool-btn" onclick="insertFormat('• ', '')">• Bullet</button>
+          </div>
+          <textarea id="broadcastMessage" placeholder="Type your broadcast message here..." oninput="onMessageInput()"></textarea>
+          <div class="field-hint">
+            <span>*bold* _italic_ `code`</span>
+            <span id="charCount">0 characters</span>
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="form-group">
+          <label>Live Preview</label>
+          <div class="preview-box" id="messagePreview">_Your message preview will appear here..._</div>
+        </div>
+
+        <!-- Send Button -->
+        <button class="btn-primary" id="btnSendBroadcast" onclick="confirmBroadcast()">
+          <span>🚀 Send Broadcast</span>
+        </button>
+
+        <!-- Broadcast Progress & Delivery Report Box -->
+        <div id="broadcastReport" style="display: none;" class="report-box">
+          <div style="font-weight: 700; margin-bottom: 8px;">📊 Broadcast Dispatch Results</div>
+          <div class="report-stat"><span>Total Targets:</span> <b id="repTotal">0</b></div>
+          <div class="report-stat success"><span>Successfully Sent:</span> <b id="repSent">0</b></div>
+          <div class="report-stat failed"><span>Failed / Blocked:</span> <b id="repFailed">0</b></div>
+          <div id="repDetails" style="margin-top: 8px; max-height: 120px; overflow-y: auto; font-family: monospace; font-size: 11px;"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- TAB 3: STUDENT MANAGEMENT -->
+    <main id="tab-students" class="tab-content">
+      <div class="card">
+        <div class="card-title">⚙️ Student Management & Reset</div>
+        <div class="form-group">
+          <label for="studentLookup">Search Student (ID or Name)</label>
+          <input type="text" id="studentLookup" placeholder="Type student ID or name to inspect..." oninput="onStudentLookupInput()" />
+        </div>
+      </div>
+
+      <!-- Student Detail Card -->
+      <div id="studentDetailCard" class="card" style="display: none;">
+        <div class="profile-header">
+          <div>
+            <div class="profile-name" id="detName">Student Name</div>
+            <div class="profile-id" id="detId">4002019015</div>
+          </div>
+          <span class="badge" id="detStatusBadge">Active</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Telegram Chat ID</span>
+          <span class="info-val font-mono" id="detChatId">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Bot Registration Date</span>
+          <span class="info-val" id="detRegDate">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Failed Password Attempts</span>
+          <span class="info-val" id="detAttempts">0 / 3</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Lockout Status</span>
+          <span class="info-val" id="detLockStatus">Normal</span>
+        </div>
+
+        <!-- Submissions Breakdown -->
+        <div style="margin-top: 16px; margin-bottom: 8px; font-weight: 700; font-size: 13px; color: var(--text-sec); text-transform: uppercase;">Homework History</div>
+        <div id="detSubmissionsList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+
+        <!-- Action Buttons -->
+        <div style="display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;">
+          <button class="btn-danger" style="flex: 1; min-width: 140px;" onclick="confirmResetCurrentStudent()">
+            <span>🔓 Reset / Unblock</span>
+          </button>
+          <button class="btn-secondary" style="flex: 1; min-width: 140px;" onclick="dmCurrentStudent()">
+            <span>💬 Direct Message</span>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- CONFIRMATION MODAL & BOTTOM SHEET -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-card">
+      <div class="sheet-handle"></div>
+      <div class="modal-title" id="modalTitle">Confirm Action</div>
+      <div class="modal-body" id="modalBody">Are you sure?</div>
+      <div class="modal-actions">
+        <button class="btn-secondary" style="width: auto; padding: 10px 18px;" onclick="closeModal()">Cancel</button>
+        <button class="btn-primary" id="modalConfirmBtn" style="width: auto; padding: 10px 22px; min-height: 44px;" onclick="executeModalAction()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast">Notification message</div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       CLIENT-SIDE JAVASCRIPT CONTROLLER
+       ══════════════════════════════════════════════════════════════════════ -->
+  <script>
+    // Global Application State
+    let tg = window.Telegram?.WebApp;
+    let rosterData = [];
+    let metricsData = {};
+    let activeFilter = 'all';
+    let selectedStudent = null;
+    let modalActionCallback = null;
+    let currentViewMode = 'cards';
+
+    // Resilience Polyfill for Telegram WebApp SDK (when telegram.org is blocked or offline)
+    if (!tg) {
+      window.Telegram = window.Telegram || {};
+      window.Telegram.WebApp = {
+        ready: () => {},
+        expand: () => {},
+        enableClosingConfirmation: () => {},
+        HapticFeedback: {
+          impactOccurred: () => {},
+          notificationOccurred: () => {}
+        }
+      };
+      tg = window.Telegram.WebApp;
+    } else {
+      try {
+        tg.ready();
+        tg.expand();
+        if (tg.enableClosingConfirmation) tg.enableClosingConfirmation();
+        if (tg.disableVerticalSwipes) tg.disableVerticalSwipes();
+      } catch (e) {}
+    }
+
+    // Direct Browser Access Key Prompt
+    function promptAccessKey() {
+      const key = prompt("Enter TA Admin Secret Key (or Database Password):");
+      if (key && key.trim()) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('token', key.trim());
+        window.location.href = url.toString();
+      }
+    }
+
+    // Extract initData with multi-tier fallback
+    function extractInitData() {
+      // 1. Telegram WebApp SDK property
+      if (tg?.initData && tg.initData.trim()) {
+        return tg.initData.trim();
+      }
+      // 2. Hash fragment (#tgWebAppData=...)
+      if (window.location.hash) {
+        try {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const hData = hashParams.get('tgWebAppData') || hashParams.get('initData');
+          if (hData && hData.trim()) return hData.trim();
+        } catch (e) {}
+      }
+      // 3. Search query params (?initData=... or ?tgWebAppData=...)
+      if (window.location.search) {
+        try {
+          const searchParams = new URLSearchParams(window.location.search);
+          const sData = searchParams.get('initData') || searchParams.get('tgWebAppData');
+          if (sData && sData.trim()) return sData.trim();
+        } catch (e) {}
+      }
+      // 4. SessionStorage cache
+      try {
+        const cached = sessionStorage.getItem('tma_init_data');
+        if (cached && cached.trim()) return cached.trim();
+      } catch (e) {}
+      return '';
+    }
+
+    // Auth Helper: Headers with initData or admin secret
+    function getAuthHeaders() {
+      const initData = extractInitData();
+      if (initData) {
+        try { sessionStorage.setItem('tma_init_data', initData); } catch (e) {}
+      }
+      const headers = { 'Content-Type': 'application/json' };
+      if (initData) {
+        headers['X-Telegram-Init-Data'] = initData;
+      }
+      // Check query param token for direct browser access
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || urlParams.get('admin_key');
+        if (token) {
+          headers['X-Admin-Secret'] = token;
+        }
+      } catch (e) {}
+      return headers;
+    }
+
+    // Update Admin User Header Pill
+    function updateAdminHeader() {
+      const user = tg?.initDataUnsafe?.user;
+      if (user) {
+        document.getElementById('adminName').textContent = user.first_name || user.username || 'Admin';
+        return;
+      }
+      const rawData = extractInitData();
+      if (rawData) {
+        try {
+          const params = new URLSearchParams(rawData);
+          const userJson = params.get('user');
+          if (userJson) {
+            const u = JSON.parse(userJson);
+            document.getElementById('adminName').textContent = u.first_name || u.username || 'Admin';
+          }
+        } catch (e) {}
+      }
+    }
+
+    // Toast Message
+    function showToast(msg, duration = 3000) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      setTimeout(() => toast.classList.remove('show'), duration);
+    }
+
+    // Modal Manager
+    function openModal(title, body, confirmText, isDanger, onConfirm) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalBody').innerHTML = body;
+      const btn = document.getElementById('modalConfirmBtn');
+      btn.textContent = confirmText || 'Confirm';
+      btn.className = isDanger ? 'btn-danger' : 'btn-primary';
+      btn.style.width = 'auto';
+      btn.style.padding = '10px 22px';
+      modalActionCallback = onConfirm;
+      document.getElementById('confirmModal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('confirmModal').classList.remove('active');
+      modalActionCallback = null;
+    }
+
+    function executeModalAction() {
+      if (modalActionCallback) modalActionCallback();
+      closeModal();
+    }
+
+    // Tab Navigation
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.textContent.toLowerCase().includes(tabName));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const targetContent = document.getElementById(`tab-${tabName}`);
+      if (targetContent) targetContent.classList.add('active');
+
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+      if (tabName === 'roster' && rosterData.length === 0) {
+        fetchRoster();
+      }
+    }
+
+    // View Mode Switcher (Cards vs Table)
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const cardsEl = document.getElementById('rosterCardsContainer');
+      const tableEl = document.getElementById('rosterTableContainer');
+      const btnCards = document.getElementById('btnViewCards');
+      const btnTable = document.getElementById('btnViewTable');
+
+      if (mode === 'cards') {
+        if (cardsEl) cardsEl.style.display = 'flex';
+        if (tableEl) tableEl.style.display = 'none';
+        if (btnCards) btnCards.classList.add('active');
+        if (btnTable) btnTable.classList.remove('active');
+      } else {
+        if (cardsEl) cardsEl.style.display = 'none';
+        if (tableEl) tableEl.style.display = 'block';
+        if (btnCards) btnCards.classList.remove('active');
+        if (btnTable) btnTable.classList.add('active');
+      }
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    // Auto-detect best view mode by screen width on start
+    function initViewMode() {
+      if (window.innerWidth >= 768) {
+        setViewMode('table');
+      } else {
+        setViewMode('cards');
+      }
+    }
+
+    // Data Loaders
+    async function fetchMetrics() {
+      try {
+        const res = await fetch('/api/admin/metrics', { headers: getAuthHeaders() });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        metricsData = data;
+
+        document.getElementById('headerTehranTime').textContent = data.server_time || 'Tehran Time';
+        document.getElementById('metricEnrolled').textContent = data.enrolled_count;
+        document.getElementById('metricRegistered').textContent = data.registered_count;
+        const pct = data.enrolled_count > 0 ? Math.round((data.registered_count / data.enrolled_count) * 100) : 0;
+        document.getElementById('metricRegisteredPct').textContent = `${pct}% adoption`;
+        document.getElementById('metricTotalSubmissions').textContent = data.total_submissions;
+        document.getElementById('metricLocked').textContent = data.locked_count;
+
+        // HW chips
+        for (let i = 1; i <= 5; i++) {
+          const el = document.getElementById(`chipHw${i}`);
+          if (el) el.textContent = data.submission_counts?.[i.toString()] || 0;
+        }
+
+        const banner = document.getElementById('authNoticeBanner');
+        if (banner) banner.style.display = 'none';
+      } catch (err) {
+        console.error('Error fetching metrics:', err);
+        const banner = document.getElementById('authNoticeBanner');
+        const textEl = document.getElementById('authNoticeText');
+        if (banner && textEl) {
+          textEl.textContent = `Metrics query error: ${err.message}. If launching from Telegram, open via /admin in the bot.`;
+          banner.style.display = 'block';
+        }
+      }
+    }
+
+    async function fetchRoster() {
+      try {
+        const res = await fetch('/api/admin/roster', { headers: getAuthHeaders() });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `HTTP ${res.status}`);
+        }
+        rosterData = await res.json();
+
+        // Populate single student dropdown in Broadcast tab
+        populateSingleStudentSelect();
+        renderRosterTable();
+        updateRecipientBadge();
+
+        const banner = document.getElementById('authNoticeBanner');
+        if (banner) banner.style.display = 'none';
+      } catch (err) {
+        console.error('Error fetching roster:', err);
+        const errMsg = `⚠️ Failed to load roster: ${err.message}. Please verify administrator authorization.`;
+        document.getElementById('rosterTableBody').innerHTML = `
+          <tr><td colspan="8" style="text-align: center; color: var(--wm-pink); padding: 18px;">${errMsg}</td></tr>
+        `;
+        document.getElementById('rosterCardsContainer').innerHTML = `
+          <div style="text-align: center; color: var(--wm-pink); padding: 24px; background: rgba(244, 63, 94, 0.08); border-radius: 12px; border: 1px solid rgba(244, 63, 94, 0.2);">
+            ${errMsg}
+          </div>
+        `;
+        const banner = document.getElementById('authNoticeBanner');
+        const textEl = document.getElementById('authNoticeText');
+        if (banner && textEl) {
+          textEl.textContent = `Authorization failure: ${err.message}. Please reopen via Telegram /admin or verify admin permissions.`;
+          banner.style.display = 'block';
+        }
+      }
+    }
+
+    function populateSingleStudentSelect() {
+      const select = document.getElementById('singleStudentSelect');
+      select.innerHTML = '<option value="">-- Choose student from roster --</option>';
+      rosterData.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.student_id;
+        opt.textContent = `${s.name} (${s.student_id}) ${s.is_registered ? '✓' : '(unregistered)'}`;
+        select.appendChild(opt);
+      });
+    }
+
+    // Tab 2: Broadcast Logic
+    function onTargetChange() {
+      const target = document.getElementById('broadcastTarget').value;
+      const singleGroup = document.getElementById('singleStudentGroup');
+      singleGroup.style.display = target === 'single' ? 'block' : 'none';
+      updateRecipientBadge();
+    }
+
+    function updateRecipientBadge() {
+      const target = document.getElementById('broadcastTarget').value;
+      let count = 0;
+      if (target === 'all') {
+        count = rosterData.filter(s => s.is_registered && s.chat_id).length;
+      } else if (target.startsWith('missing_')) {
+        const hwNum = target.split('_')[1];
+        count = rosterData.filter(s => s.is_registered && s.chat_id && !s.submissions[hwNum]?.submitted).length;
+      } else if (target === 'single') {
+        const sid = document.getElementById('singleStudentSelect').value;
+        const found = rosterData.find(s => s.student_id === sid && s.is_registered && s.chat_id);
+        count = found ? 1 : 0;
+      }
+      document.getElementById('recipientCountBadge').textContent = `Audience: ${count} student${count === 1 ? '' : 's'}`;
+    }
+
+    function applyTemplate() {
+      const template = document.getElementById('templateSelect').value;
+      const msgArea = document.getElementById('broadcastMessage');
+      if (template === 'deadline') {
+        msgArea.value = "⏰ *Homework Deadline Reminder*\n\nDear student,\nThis is a friendly reminder that the submission window for the current homework assignment closes in *24 hours*.\n\nPlease submit your solution via this bot before the deadline!";
+      } else if (template === 'missing') {
+        msgArea.value = "⚠️ *Missing Submission Alert*\n\nAccording to our records, we have not yet received your submission for the assignment.\n\nPlease upload your PDF file before the grace period expires.";
+      } else if (template === 'office_hours') {
+        msgArea.value = "💬 *TA Office Hours & Consultation*\n\nDear students,\nOffice hours are available today for questions regarding the homework. Please reach out if you need assistance!";
+      } else if (template === 'receipt') {
+        msgArea.value = "✅ *Submission Receipt Confirmed*\n\nAll received homework files have been synchronized with the course grading archive. Thank you for your on-time submissions!";
+      }
+      onMessageInput();
+    }
+
+    function insertFormat(prefix, suffix) {
+      const textarea = document.getElementById('broadcastMessage');
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      const selected = text.substring(start, end) || 'text';
+      textarea.value = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+      onMessageInput();
+    }
+
+    function onMessageInput() {
+      const text = document.getElementById('broadcastMessage').value;
+      document.getElementById('charCount').textContent = `${text.length} characters`;
+
+      let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*(.*?)\*/g, '<b>$1</b>')
+        .replace(/_(.*?)_/g, '<i>$1</i>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br/>');
+
+      document.getElementById('messagePreview').innerHTML = html || '<i>Your message preview will appear here...</i>';
+    }
+
+    function confirmBroadcast() {
+      const target = document.getElementById('broadcastTarget').value;
+      const message = document.getElementById('broadcastMessage').value.trim();
+      const singleSid = document.getElementById('singleStudentSelect').value;
+
+      if (!message) {
+        showToast('⚠️ Please write a message to send.');
+        return;
+      }
+      if (target === 'single' && !singleSid) {
+        showToast('⚠️ Please select a student for single broadcast.');
+        return;
+      }
+
+      let audienceCount = 0;
+      if (target === 'all') {
+        audienceCount = rosterData.filter(s => s.is_registered && s.chat_id).length;
+      } else if (target.startsWith('missing_')) {
+        const hwNum = target.split('_')[1];
+        audienceCount = rosterData.filter(s => s.is_registered && s.chat_id && !s.submissions[hwNum]?.submitted).length;
+      } else {
+        audienceCount = 1;
+      }
+
+      openModal(
+        'Confirm Broadcast Dispatch',
+        `Are you sure you want to dispatch this announcement to <b>${audienceCount} student(s)</b>?<br/><br/><div class="preview-box">${document.getElementById('messagePreview').innerHTML}</div>`,
+        '🚀 Send Now',
+        false,
+        () => dispatchBroadcast(target, message, singleSid)
+      );
+    }
+
+    async function dispatchBroadcast(target, message, studentId) {
+      const btn = document.getElementById('btnSendBroadcast');
+      btn.disabled = true;
+      btn.textContent = '⏳ Dispatching messages...';
+
+      const reportBox = document.getElementById('broadcastReport');
+      reportBox.style.display = 'block';
+      document.getElementById('repTotal').textContent = '...';
+      document.getElementById('repSent').textContent = '...';
+      document.getElementById('repFailed').textContent = '...';
+      document.getElementById('repDetails').innerHTML = 'Sending via Telegram Bot API...';
+
+      try {
+        const payload = { target, message };
+        if (target === 'single') payload.student_id = studentId;
+
+        const res = await fetch('/api/admin/broadcast', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+        document.getElementById('repTotal').textContent = data.total;
+        document.getElementById('repSent').textContent = data.sent;
+        document.getElementById('repFailed').textContent = data.failed;
+
+        let detailsHtml = '';
+        data.details.forEach(d => {
+          const color = d.status === 'sent' ? 'var(--wm-green)' : 'var(--wm-pink)';
+          detailsHtml += `<div style="color: ${color}">• [${d.student_id}] ${d.name}: ${d.status.toUpperCase()} ${d.reason ? '('+d.reason+')' : ''}</div>`;
+        });
+        document.getElementById('repDetails').innerHTML = detailsHtml || 'No recipients processed.';
+
+        showToast(`🎉 Broadcast completed: ${data.sent} sent, ${data.failed} failed.`);
+      } catch (err) {
+        showToast(`❌ Broadcast error: ${err.message}`);
+        document.getElementById('repDetails').innerHTML = `<span style="color:var(--wm-pink)">Error: ${err.message}</span>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🚀 Send Broadcast</span>';
+      }
+    }
+
+    // Tab 1: Roster Matrix & Cards Logic
+    function setRosterFilter(filterName, chipElement) {
+      activeFilter = filterName;
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chipElement.classList.add('active');
+      renderRosterTable();
+    }
+
+    function filterRoster() {
+      renderRosterTable();
+    }
+
+    function renderRosterTable() {
+      const query = document.getElementById('rosterSearch').value.toLowerCase().trim();
+      const tbody = document.getElementById('rosterTableBody');
+      const cardsContainer = document.getElementById('rosterCardsContainer');
+
+      const filtered = rosterData.filter(s => {
+        const matchesQuery = !query || s.student_id.toLowerCase().includes(query) || s.name.toLowerCase().includes(query);
+        if (!matchesQuery) return false;
+
+        if (activeFilter === 'registered') return s.is_registered;
+        if (activeFilter === 'locked') return s.is_locked;
+        if (activeFilter === 'missing') {
+          return Object.values(s.submissions).some(sub => !sub.submitted);
+        }
+        return true;
+      });
+
+      // Update count text
+      const countEl = document.getElementById('rosterResultsCount');
+      if (countEl) {
+        countEl.textContent = `Showing ${filtered.length} of ${rosterData.length} students`;
+      }
+
+      if (filtered.length === 0) {
+        const emptyHtml = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">No students match current search or filters.</div>';
+        if (tbody) tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No students match current search or filters.</td></tr>`;
+        if (cardsContainer) cardsContainer.innerHTML = emptyHtml;
+        return;
+      }
+
+      // 1. Render Desktop Table HTML
+      let tableHtml = '';
+      let cardsHtml = '';
+
+      filtered.forEach(s => {
+        // Status Badge
+        let statusBadge = '<span class="badge badge-missing">Unregistered</span>';
+        if (s.is_locked) {
+          statusBadge = '<span class="badge badge-locked">🔒 Locked</span>';
+        } else if (s.is_registered) {
+          statusBadge = '<span class="badge badge-sub">✓ Active</span>';
+        }
+
+        // Compute submissions count and HW cell HTML
+        let subCount = 0;
+        let hwCells = '';
+        let hwCardChips = '';
+
+        for (let hw = 1; hw <= 5; hw++) {
+          const sub = s.submissions[hw.toString()];
+          const gradeInfo = sub?.grade;
+
+          if (sub?.submitted) {
+            subCount++;
+            const editTag = sub.edit_count > 0 ? ` (+${sub.edit_count})` : '';
+            let gradeTag = '';
+            let cardGradeBadge = '';
+
+            if (gradeInfo && gradeInfo.earned_score !== null && gradeInfo.earned_score !== undefined) {
+              gradeTag = `<div style="font-size: 10px; color: var(--wm-green); font-weight: 800; margin-top: 2px;">🎯 ${gradeInfo.earned_score}/${gradeInfo.max_score}</div>`;
+              cardGradeBadge = `<span class="sc-hw-grade">🎯 ${gradeInfo.earned_score}/${gradeInfo.max_score}</span>`;
+            }
+
+            hwCells += `<td><span class="badge badge-sub" title="${sub.file_name} submitted at ${sub.submitted_at}">✓ HW${hw}${editTag}</span>${gradeTag}</td>`;
+            hwCardChips += `
+              <div class="sc-hw-pill sub" title="${sub.file_name} (${sub.submitted_at})">
+                <span class="sc-hw-num">HW${hw}</span>
+                <span class="sc-hw-status">✓</span>
+                ${cardGradeBadge}
+              </div>
+            `;
+          } else {
+            hwCells += `<td><span class="badge badge-missing">—</span></td>`;
+            hwCardChips += `
+              <div class="sc-hw-pill missing">
+                <span class="sc-hw-num">HW${hw}</span>
+                <span class="sc-hw-status">—</span>
+              </div>
+            `;
+          }
+        }
+
+        // Desktop Table Row
+        tableHtml += `
+          <tr>
+            <td class="sticky-col">
+              <div style="font-weight: 700;">${s.name}</div>
+              <div style="font-size: 11px; color: var(--text-sec); font-family: ui-monospace, monospace;">${s.student_id}</div>
+            </td>
+            <td>${statusBadge}</td>
+            ${hwCells}
+            <td>
+              <button class="btn-secondary" style="min-height: 32px; padding: 4px 10px; font-size: 11px;" onclick="viewStudentDetails('${s.student_id}')">Inspect</button>
+            </td>
+          </tr>
+        `;
+
+        // Mobile Card HTML
+        cardsHtml += `
+          <div class="student-card ${s.is_locked ? 'is-locked' : ''}">
+            <div class="sc-header">
+              <div>
+                <div class="sc-name">${s.name}</div>
+                <div class="sc-id">${s.student_id}</div>
+              </div>
+              <div>${statusBadge}</div>
+            </div>
+
+            <div class="sc-hw-grid">
+              ${hwCardChips}
+            </div>
+
+            <div class="sc-footer">
+              <div class="sc-stats">
+                <span>📝 ${subCount}/5 submitted</span>
+                ${s.chat_id ? '<span style="color: var(--wm-green); font-weight: 600;">• Linked</span>' : '<span style="color: var(--text-muted);">• Unlinked</span>'}
+              </div>
+              <button class="sc-inspect-btn" onclick="viewStudentDetails('${s.student_id}')">
+                <span>🔍 Inspect & Reset</span>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      if (tbody) tbody.innerHTML = tableHtml;
+      if (cardsContainer) cardsContainer.innerHTML = cardsHtml;
+    }
+
+    // Tab 3: Student Management Logic
+    function onStudentLookupInput() {
+      const val = document.getElementById('studentLookup').value.toLowerCase().trim();
+      if (!val) {
+        document.getElementById('studentDetailCard').style.display = 'none';
+        return;
+      }
+      const found = rosterData.find(s => s.student_id.toLowerCase().includes(val) || s.name.toLowerCase().includes(val));
+      if (found) {
+        renderStudentProfile(found);
+      }
+    }
+
+    function viewStudentDetails(studentId) {
+      const found = rosterData.find(s => s.student_id === studentId);
+      if (found) {
+        switchTab('students');
+        document.getElementById('studentLookup').value = found.student_id;
+        renderStudentProfile(found);
+      }
+    }
+
+    function renderStudentProfile(s) {
+      selectedStudent = s;
+      const card = document.getElementById('studentDetailCard');
+      card.style.display = 'block';
+
+      document.getElementById('detName').textContent = s.name;
+      document.getElementById('detId').textContent = s.student_id;
+      
+      const badge = document.getElementById('detStatusBadge');
+      if (s.is_locked) {
+        badge.className = 'badge badge-locked';
+        badge.textContent = '🔒 Locked Out';
+      } else if (s.is_registered) {
+        badge.className = 'badge badge-sub';
+        badge.textContent = '✓ Registered';
+      } else {
+        badge.className = 'badge badge-missing';
+        badge.textContent = 'Unregistered';
+      }
+
+      document.getElementById('detChatId').textContent = s.chat_id || 'Not linked';
+      document.getElementById('detRegDate').textContent = s.registered_at || 'Never registered';
+      document.getElementById('detAttempts').textContent = `${s.attempts} / 3 failed attempts`;
+      document.getElementById('detLockStatus').textContent = s.is_blacklisted ? 'Permanently Blacklisted' : (s.attempts >= 3 ? 'Locked Out' : 'Normal');
+
+      // Submissions list
+      let subHtml = '';
+      for (let hw = 1; hw <= 5; hw++) {
+        const sub = s.submissions[hw.toString()];
+        const gradeInfo = sub?.grade;
+        let gradeStr = '';
+        if (gradeInfo && gradeInfo.earned_score !== null && gradeInfo.earned_score !== undefined) {
+          gradeStr = ` | 🎯 Score: <b style="color:var(--wm-green)">${gradeInfo.earned_score}/${gradeInfo.max_score}</b> (graded by ${gradeInfo.graded_by || 'TA'})`;
+        }
+
+        if (sub?.submitted) {
+          subHtml += `
+            <div style="background: rgba(0,0,0,0.3); padding: 10px 12px; border-radius: 10px; font-size: 13px; border: 1px solid var(--wm-border);">
+              <div style="display: flex; justify-content: space-between; font-weight: 700;">
+                <span>📝 HW ${hw}: ${sub.file_name || 'submission.pdf'}</span>
+                <span style="color: var(--wm-green);">✓ Submitted (${sub.edit_count} edits)</span>
+              </div>
+              <div style="color: var(--text-sec); font-size: 11px; margin-top: 3px;">
+                🕒 Recorded: ${sub.submitted_at}${gradeStr}
+              </div>
+            </div>
+          `;
+        } else {
+          subHtml += `
+            <div style="background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 10px; font-size: 13px; color: var(--text-muted); border: 1px solid var(--wm-border);">
+              📝 HW ${hw}: Not submitted
+            </div>
+          `;
+        }
+      }
+      document.getElementById('detSubmissionsList').innerHTML = subHtml;
+    }
+
+    function confirmResetCurrentStudent() {
+      if (!selectedStudent) return;
+      openModal(
+        'Confirm Student Reset',
+        `Are you sure you want to <b>unbind</b> student <b>${selectedStudent.name} (${selectedStudent.student_id})</b>?<br/><br/>` +
+        `This unbinds their Telegram chat account and clears failed authentication lockouts so they can register cleanly.`,
+        '🔓 Reset & Unblock',
+        true,
+        () => resetStudent(selectedStudent.student_id)
+      );
+    }
+
+    async function resetStudent(studentId) {
+      try {
+        const res = await fetch('/api/admin/reset', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ student_id: studentId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+        showToast(`✅ ${data.message}`);
+        await fetchMetrics();
+        await fetchRoster();
+
+        const updated = rosterData.find(s => s.student_id === studentId);
+        if (updated) renderStudentProfile(updated);
+      } catch (err) {
+        showToast(`❌ Reset failed: ${err.message}`);
+      }
+    }
+
+    function dmCurrentStudent() {
+      if (!selectedStudent) return;
+      switchTab('broadcast');
+      document.getElementById('broadcastTarget').value = 'single';
+      onTargetChange();
+      document.getElementById('singleStudentSelect').value = selectedStudent.student_id;
+      updateRecipientBadge();
+      document.getElementById('broadcastMessage').focus();
+    }
+
+    // Initial Load Lifecycle with readyState guard
+    function startApp() {
+      initViewMode();
+      updateAdminHeader();
+      fetchMetrics();
+      fetchRoster();
+      setInterval(fetchMetrics, 30000); // Poll metrics every 30s
+    }
+
+    window.addEventListener('resize', () => {
+      // Don't override user selection if explicitly toggled, but keep responsive
+    });
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startApp);
+    } else {
+      startApp();
+    }
+  </script>
+</body>
+</html>

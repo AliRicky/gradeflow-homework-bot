@@ -1,0 +1,6 @@
+{
+  "name": "GradeFlow TA & Student Portal",
+  "description": "Comprehensive Teaching Assistant & Student Portal with hierarchical multi-part assignment builder, real-time sync, gradebook matrix, deadline alerts, and offline caching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
