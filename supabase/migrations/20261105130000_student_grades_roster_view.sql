@@ -2,7 +2,9 @@
 -- Resolves foreign key mapping mismatch between Supabase Auth UUID (users.id) in grades
 -- and Academic Student ID (users.student_id) in submissions and Telegram students table.
 
-CREATE OR REPLACE VIEW public.v_student_grades_roster AS
+CREATE OR REPLACE VIEW public.v_student_grades_roster
+WITH (security_invoker = true)
+AS
 SELECT 
     u.id AS user_id,
     u.student_id,
@@ -34,5 +36,7 @@ LEFT JOIN public.submissions sub ON sub.student_id = u.student_id AND (
     (a.short_code = 'HW5' AND sub.hw_num = 5)
 );
 
--- Grant access on the unified view
-GRANT SELECT ON public.v_student_grades_roster TO authenticated, anon, service_role;
+-- Grant access strictly to authenticated users and serverless service role
+-- Revoke unauthenticated access to prevent student PII & grade enumeration
+REVOKE ALL ON public.v_student_grades_roster FROM anon, public;
+GRANT SELECT ON public.v_student_grades_roster TO authenticated, service_role;
