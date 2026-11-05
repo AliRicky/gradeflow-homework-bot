@@ -1,7 +1,7 @@
 {
   "name": "gradeflow-homework-bot",
   "version": "1.0.0",
-  "description": "Unified Educational Platform: Grade Flow Proportional Grading App & Telegram Homework Collector Bot",
+  "description": "Unified Educational Platform: Grade Flow Proportional Grading App & Telegram Homework Collector Bot with Control Dashboard",
   "private": true,
   "scripts": {
     "dev:gradeflow": "cd grade-flow && npm run dev",

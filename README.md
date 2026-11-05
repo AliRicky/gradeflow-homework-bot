@@ -1,4 +1,4 @@
-# Grade Flow & Telegram Homework Collector: Unified Educational Platform
+# Unified Educational Platform: Grade Flow Proportional Grading App & Telegram Homework Collector Bot with Control Dashboard
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -8,7 +8,7 @@
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A unified, production-grade academic management ecosystem seamlessly bridging **Telegram-based student submissions** with a **reactive Proportional Grading Web Application** and an **Adaptive Touch-Optimized Telegram Mini App (TMA)** for course instructors and Teaching Assistants.
+A unified, production-grade academic management ecosystem seamlessly bridging **Telegram-based student submissions** with a **reactive Proportional Grading Web Application** and a **Control Dashboard Telegram Mini App (TMA)** for course instructors and Teaching Assistants.
 
 ---
 
