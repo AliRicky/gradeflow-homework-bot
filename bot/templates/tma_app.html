@@ -1217,9 +1217,9 @@
 
     <!-- Segmented Navigation Tabs -->
     <nav class="tab-bar">
-      <button class="tab-btn active" onclick="switchTab('roster')">📊 Matrix</button>
-      <button class="tab-btn" onclick="switchTab('broadcast')">📢 Broadcast</button>
-      <button class="tab-btn" onclick="switchTab('students')">👤 Students</button>
+      <button class="tab-btn active" onclick="switchTab('roster')">Matrix</button>
+      <button class="tab-btn" onclick="switchTab('broadcast')">Broadcast</button>
+      <button class="tab-btn" onclick="switchTab('students')">Students</button>
     </nav>
 
     <!-- TAB 1: ROSTER & SUBMISSION MATRIX (Default Active Landing Tab) -->
@@ -1331,7 +1331,7 @@
     <main id="tab-broadcast" class="tab-content">
       <div class="card">
         <div class="card-title">
-          <span>📢 Broadcast Announcement</span>
+          <span>Broadcast Announcement</span>
           <span class="badge badge-ok" id="recipientCountBadge">Audience: ...</span>
         </div>
 
@@ -1407,32 +1407,73 @@
       </div>
     </main>
 
-    <!-- TAB 3: STUDENT MANAGEMENT -->
+    <!-- TAB 3: STUDENT ACCESS & ACCOUNT CONTROL -->
     <main id="tab-students" class="tab-content">
       <div class="card">
-        <div class="card-title">⚙️ Student Management & Reset</div>
-        <div class="form-group">
-          <label for="studentLookup">Search Student (ID, Name, or Chat ID)</label>
-          <input type="text" id="studentLookup" placeholder="Type student ID, name, or Telegram Chat ID..." oninput="onStudentLookupInput()" />
+        <div class="card-title">Student Access & Account Control</div>
+        <div style="font-size: 13px; color: var(--text-sec); margin-bottom: 14px; line-height: 1.5;">
+          Search course roster by Student ID or Name, or enter a numeric Telegram Chat ID to inspect account state, unblock password lockouts, or reset active sessions.
         </div>
-      </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input 
+              type="text" 
+              id="studentLookup" 
+              placeholder="Enter Student ID, Name, or Telegram Chat ID..." 
+              oninput="onStudentLookupInput()" 
+              style="flex: 1; min-height: 44px;"
+            />
+            <button 
+              id="clearLookupBtn" 
+              class="btn-secondary" 
+              style="display: none; padding: 0 14px; min-height: 44px; width: auto; font-size: 13px;"
+              onclick="clearStudentLookup()"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
 
-      <!-- Direct Unblock by Telegram Chat ID Card -->
-      <div class="card" style="margin-top: 14px; border: 1px dashed var(--wm-border-strong);">
-        <div class="card-title" style="font-size: 14px; margin-bottom: 8px;">⚡ Direct Unblock by Telegram Chat ID</div>
-        <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 12px;">
-          If an unregistered student was locked out before completing registration, enter their Telegram Chat ID here to immediately clear their blacklist &amp; reset failed attempts:
+        <!-- Smart Chat ID Action Panel (dynamically revealed when input is a numeric chat_id) -->
+        <div id="smartChatIdPanel" style="display: none; margin-top: 14px; padding: 14px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+            <div style="flex: 1; min-width: 220px;">
+              <div style="font-weight: 700; font-size: 13px; color: #38bdf8; letter-spacing: 0.3px;">Telegram Chat ID Action</div>
+              <div style="font-size: 12px; color: var(--text-sec); margin-top: 4px; line-height: 1.4;">
+                Target: <span class="font-mono" id="smartDetectedChatId" style="color: var(--text-pri); font-weight: 700;"></span>
+                <span id="smartMatchBadge" style="margin-left: 8px;"></span>
+              </div>
+              <div id="smartChatIdDesc" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                Clear lockout state or unbind registration session for this Telegram account.
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button 
+                class="btn-primary" 
+                style="width: auto; padding: 0 16px; min-height: 40px; font-size: 13px;" 
+                onclick="directUnblockBySmartChatId()"
+              >
+                Unblock Account
+              </button>
+              <button 
+                class="btn-secondary" 
+                style="width: auto; padding: 0 14px; min-height: 40px; font-size: 13px;" 
+                onclick="directResetBySmartChatId()"
+              >
+                Reset Session
+              </button>
+            </div>
+          </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <input type="number" id="directChatIdInput" placeholder="e.g. 6103177673" style="flex: 1; font-family: ui-monospace, monospace;" />
-          <button class="btn-primary" style="width: auto; padding: 0 18px; min-height: 42px;" onclick="directUnblockChatId()">
-            <span>🔓 Unblock</span>
-          </button>
+
+        <!-- Helper message when no record matches -->
+        <div id="lookupNoMatchMessage" style="display: none; margin-top: 12px; font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+          No matching roster student found. If unblocking an unregistered student, enter their Telegram Chat ID (e.g. 6103177673) to clear their lockout.
         </div>
       </div>
 
       <!-- Student Detail Card -->
-      <div id="studentDetailCard" class="card" style="display: none;">
+      <div id="studentDetailCard" class="card" style="display: none; margin-top: 14px;">
         <div class="profile-header">
           <div>
             <div class="profile-name" id="detName">Student Name</div>
@@ -1446,7 +1487,7 @@
           <span class="info-val font-mono" id="detChatId">—</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Bot Registration Date</span>
+          <span class="info-label">Registration Timestamp</span>
           <span class="info-val" id="detRegDate">—</span>
         </div>
         <div class="info-row">
@@ -1459,16 +1500,19 @@
         </div>
 
         <!-- Submissions Breakdown -->
-        <div style="margin-top: 16px; margin-bottom: 8px; font-weight: 700; font-size: 13px; color: var(--text-sec); text-transform: uppercase;">Homework History</div>
+        <div style="margin-top: 16px; margin-bottom: 8px; font-weight: 700; font-size: 12px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.5px;">Homework History</div>
         <div id="detSubmissionsList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
 
         <!-- Action Buttons -->
         <div style="display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap;">
-          <button class="btn-danger" style="flex: 1; min-width: 140px;" onclick="confirmResetCurrentStudent()">
-            <span>🔓 Reset / Unblock</span>
+          <button class="btn-primary" style="flex: 1; min-width: 140px; min-height: 44px;" onclick="confirmUnblockCurrentStudent()">
+            <span>Unblock Lockout</span>
           </button>
-          <button class="btn-secondary" style="flex: 1; min-width: 140px;" onclick="dmCurrentStudent()">
-            <span>💬 Direct Message</span>
+          <button class="btn-danger" style="flex: 1; min-width: 140px; min-height: 44px;" onclick="confirmResetCurrentStudent()">
+            <span>Reset Session</span>
+          </button>
+          <button class="btn-secondary" style="flex: 1; min-width: 140px; min-height: 44px;" onclick="dmCurrentStudent()">
+            <span>Direct Message</span>
           </button>
         </div>
       </div>
@@ -2060,20 +2104,70 @@
       if (cardsContainer) cardsContainer.innerHTML = cardsHtml;
     }
 
-    // Tab 3: Student Management Logic
+    // Tab 3: Student Access & Account Control Logic
+    let currentDetectedChatId = null;
+
+    function clearStudentLookup() {
+      const input = document.getElementById('studentLookup');
+      input.value = '';
+      onStudentLookupInput();
+      input.focus();
+    }
+
     function onStudentLookupInput() {
-      const val = document.getElementById('studentLookup').value.toLowerCase().trim();
-      if (!val) {
-        document.getElementById('studentDetailCard').style.display = 'none';
+      const rawVal = document.getElementById('studentLookup').value.trim();
+      const val = rawVal.toLowerCase();
+      const clearBtn = document.getElementById('clearLookupBtn');
+      const smartPanel = document.getElementById('smartChatIdPanel');
+      const noMatchMsg = document.getElementById('lookupNoMatchMessage');
+      const detailCard = document.getElementById('studentDetailCard');
+
+      clearBtn.style.display = rawVal ? 'inline-flex' : 'none';
+
+      if (!rawVal) {
+        smartPanel.style.display = 'none';
+        noMatchMsg.style.display = 'none';
+        detailCard.style.display = 'none';
+        currentDetectedChatId = null;
         return;
       }
+
+      // 1. Detect if input is a numeric Telegram Chat ID (digits only, 6 to 14 digits)
+      const isNumericChatId = /^\d{6,14}$/.test(rawVal);
+      if (isNumericChatId) {
+        currentDetectedChatId = parseInt(rawVal, 10);
+        smartPanel.style.display = 'block';
+        document.getElementById('smartDetectedChatId').textContent = rawVal;
+      } else {
+        currentDetectedChatId = null;
+        smartPanel.style.display = 'none';
+      }
+
+      // 2. Search roster for matching student (by student_id, name, or chat_id)
       const found = rosterData.find(s => 
         (s.student_id && s.student_id.toLowerCase().includes(val)) || 
         (s.name && s.name.toLowerCase().includes(val)) ||
         (s.chat_id && s.chat_id.toString().includes(val))
       );
+
       if (found) {
+        noMatchMsg.style.display = 'none';
         renderStudentProfile(found);
+        if (isNumericChatId) {
+          const matchBadge = document.getElementById('smartMatchBadge');
+          matchBadge.innerHTML = `<span class="badge badge-sub" style="font-size: 11px;">Linked: ${found.name} (${found.student_id})</span>`;
+          document.getElementById('smartChatIdDesc').textContent = 'Account linked to enrolled roster student. You can unblock lockout or reset session.';
+        }
+      } else {
+        detailCard.style.display = 'none';
+        if (isNumericChatId) {
+          noMatchMsg.style.display = 'none';
+          const matchBadge = document.getElementById('smartMatchBadge');
+          matchBadge.innerHTML = `<span class="badge badge-missing" style="font-size: 11px;">Unregistered Account</span>`;
+          document.getElementById('smartChatIdDesc').textContent = 'This Telegram account has not completed registration. Click Unblock Account to clear lockout state.';
+        } else {
+          noMatchMsg.style.display = 'block';
+        }
       }
     }
 
@@ -2082,6 +2176,7 @@
       if (found) {
         switchTab('students');
         document.getElementById('studentLookup').value = found.student_id;
+        onStudentLookupInput();
         renderStudentProfile(found);
       }
     }
@@ -2097,10 +2192,10 @@
       const badge = document.getElementById('detStatusBadge');
       if (s.is_locked) {
         badge.className = 'badge badge-locked';
-        badge.textContent = '🔒 Locked Out';
+        badge.textContent = 'Locked Out';
       } else if (s.is_registered) {
         badge.className = 'badge badge-sub';
-        badge.textContent = '✓ Registered';
+        badge.textContent = 'Registered';
       } else {
         badge.className = 'badge badge-missing';
         badge.textContent = 'Unregistered';
@@ -2118,25 +2213,25 @@
         const gradeInfo = sub?.grade;
         let gradeStr = '';
         if (gradeInfo && gradeInfo.earned_score !== null && gradeInfo.earned_score !== undefined) {
-          gradeStr = ` | 🎯 Score: <b style="color:var(--wm-green)">${gradeInfo.earned_score}/${gradeInfo.max_score}</b> (graded by ${gradeInfo.graded_by || 'TA'})`;
+          gradeStr = ` | Score: <b style="color:var(--wm-green)">${gradeInfo.earned_score}/${gradeInfo.max_score}</b> (graded by ${gradeInfo.graded_by || 'TA'})`;
         }
 
         if (sub?.submitted) {
           subHtml += `
             <div style="background: rgba(0,0,0,0.3); padding: 10px 12px; border-radius: 10px; font-size: 13px; border: 1px solid var(--wm-border);">
               <div style="display: flex; justify-content: space-between; font-weight: 700;">
-                <span>📝 HW ${hw}: ${sub.file_name || 'submission.pdf'}</span>
-                <span style="color: var(--wm-green);">✓ Submitted (${sub.edit_count} edits)</span>
+                <span>HW ${hw}: ${sub.file_name || 'submission.pdf'}</span>
+                <span style="color: var(--wm-green);">Submitted (${sub.edit_count} edits)</span>
               </div>
               <div style="color: var(--text-sec); font-size: 11px; margin-top: 3px;">
-                🕒 Recorded: ${sub.submitted_at}${gradeStr}
+                Recorded: ${sub.submitted_at}${gradeStr}
               </div>
             </div>
           `;
         } else {
           subHtml += `
             <div style="background: rgba(0,0,0,0.15); padding: 8px 12px; border-radius: 10px; font-size: 13px; color: var(--text-muted); border: 1px solid var(--wm-border);">
-              📝 HW ${hw}: Not submitted
+              HW ${hw}: Not submitted
             </div>
           `;
         }
@@ -2144,17 +2239,72 @@
       document.getElementById('detSubmissionsList').innerHTML = subHtml;
     }
 
+    async function directUnblockBySmartChatId() {
+      if (!currentDetectedChatId) return;
+      await unblockStudent(null, currentDetectedChatId);
+    }
+
+    async function directResetBySmartChatId() {
+      if (!currentDetectedChatId) return;
+      openModal(
+        'Confirm Session Reset',
+        `Reset and unbind session for Telegram Chat ID <b>${currentDetectedChatId}</b>?<br/><br/>` +
+        `This clears failed password attempts and unlinks any registration so the student can register again.`,
+        'Reset Session',
+        true,
+        () => resetStudent(null, currentDetectedChatId)
+      );
+    }
+
+    function confirmUnblockCurrentStudent() {
+      if (!selectedStudent) return;
+      openModal(
+        'Confirm Account Unblock',
+        `Unblock account lockout for <b>${selectedStudent.name} (${selectedStudent.student_id})</b>?<br/><br/>` +
+        `This clears failed password attempts and blacklist status without deleting their registration.`,
+        'Unblock Account',
+        false,
+        () => unblockStudent(selectedStudent.student_id, selectedStudent.chat_id)
+      );
+    }
+
     function confirmResetCurrentStudent() {
       if (!selectedStudent) return;
       openModal(
-        'Confirm Student Reset',
-        `Are you sure you want to <b>reset / unblock</b> student <b>${selectedStudent.name} (${selectedStudent.student_id})</b>?<br/><br/>` +
-        `This clears failed password attempts and lockout states so they can use the bot.<br/>` +
-        `_(If previously registered, their Telegram chat binding will be unlinked so they can re-register)_`,
-        '🔓 Reset & Unblock',
+        'Confirm Session Reset',
+        `Are you sure you want to <b>reset / unbind</b> session for student <b>${selectedStudent.name} (${selectedStudent.student_id})</b>?<br/><br/>` +
+        `This unbinds their Telegram chat account and clears failed authentication lockouts so they can register cleanly.<br/>` +
+        `<i>(Existing homework submissions in the database remain completely intact)</i>`,
+        'Reset Session',
         true,
         () => resetStudent(selectedStudent.student_id, selectedStudent.chat_id)
       );
+    }
+
+    async function unblockStudent(studentId, chatId) {
+      try {
+        const payload = {};
+        if (studentId && !studentId.startsWith('TG-')) payload.student_id = studentId;
+        if (chatId) payload.chat_id = parseInt(chatId, 10);
+        else if (studentId && studentId.startsWith('TG-')) payload.chat_id = parseInt(studentId.replace('TG-', ''), 10);
+
+        const res = await fetch('/api/admin/unblock', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+        showToast(`${data.message}`);
+        await fetchMetrics();
+        await fetchRoster();
+
+        const updated = rosterData.find(s => (studentId && s.student_id === studentId) || (chatId && s.chat_id === chatId));
+        if (updated) renderStudentProfile(updated);
+      } catch (err) {
+        showToast(`Unblock failed: ${err.message}`);
+      }
     }
 
     async function resetStudent(studentId, chatId) {
@@ -2172,45 +2322,15 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
 
-        showToast(`✅ ${data.message}`);
+        showToast(`${data.message}`);
         await fetchMetrics();
         await fetchRoster();
 
-        const updated = rosterData.find(s => s.student_id === studentId || (chatId && s.chat_id === chatId));
+        const updated = rosterData.find(s => (studentId && s.student_id === studentId) || (chatId && s.chat_id === chatId));
         if (updated) renderStudentProfile(updated);
         else document.getElementById('studentDetailCard').style.display = 'none';
       } catch (err) {
-        showToast(`❌ Reset failed: ${err.message}`);
-      }
-    }
-
-    async function directUnblockChatId() {
-      const input = document.getElementById('directChatIdInput');
-      const val = input.value.trim();
-      if (!val) {
-        showToast('⚠️ Please enter a numeric Telegram Chat ID');
-        return;
-      }
-      const chatId = parseInt(val, 10);
-      if (isNaN(chatId)) {
-        showToast('⚠️ Invalid Chat ID');
-        return;
-      }
-      try {
-        const res = await fetch('/api/admin/reset', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ chat_id: chatId })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-
-        showToast(`✅ ${data.message}`);
-        input.value = '';
-        await fetchMetrics();
-        await fetchRoster();
-      } catch (err) {
-        showToast(`❌ Unblock failed: ${err.message}`);
+        showToast(`Reset failed: ${err.message}`);
       }
     }
 
