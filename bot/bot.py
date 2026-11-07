@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-TA Homework Collector Bot (v2)
--------------------------------
+TA Homework Collector Bot (v10.1.0)
+------------------------------------
 Production-ready async Telegram Bot for automated student homework collection,
-archiving to Telegram Forum Topics, and TA progress tracking.
+archiving to Telegram Forum Topics, TA progress tracking, and full-featured
+Telegram Mini App (TMA) TA Control Hub.
 
-v2 Upgrades:
-- Asia/Tehran timezone formatting ('YYYY-MM-DD HH:mm:ss Tehran Time').
+Capabilities & Architecture:
+- Telegram Mini App (TMA) TA Control Hub with zero-trust HMAC-SHA256 authentication.
+- Live Roster & Submission Matrix with Grade Synchronization.
+- Broadcast Console (All Students, Missing HW 1..5, Single Student).
+- Student Manager, 1-Click Telegram chat_id unbinding, and direct chat_id lockout unblocking.
+- Admin Telegram commands: /unblock and /reset with auto-detection for Student ID and Chat ID.
+- Two-stage student authentication with per-student passwords and zero-trust chat_id locking.
 - Submission edit limits: Maximum 2 edits allowed after initial submission (total 3 submissions).
 - Forum archive deduplication: Superseded submissions are automatically deleted from archive topics.
-- Lock enforcement: Submissions are locked once 2 edits are reached.
-- Student submission status & tracking.
+- Dual persistence: Supabase PostgreSQL (production) with local SQLite fallback.
 """
 
 import csv
@@ -476,17 +481,18 @@ def get_all_student_grades_map() -> Dict[str, Dict[int, Dict[str, Any]]]:
 
 def get_user_state(chat_id: int) -> Tuple[Optional[int], int, bool, Optional[str]]:
     with get_db_conn() as conn:
-        cursor = conn.cursor()
         cursor = execute_query(conn, "SELECT selected_hw, attempts, is_blacklisted, pending_student_id FROM user_state WHERE chat_id = ?", (chat_id,))
         row = cursor.fetchone()
         if not row:
             if POSTGRES_URL:
-                cursor.execute(
+                execute_query(
+                    conn,
                     "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, FALSE, NULL)",
                     (chat_id,)
                 )
             else:
-                cursor.execute(
+                execute_query(
+                    conn,
                     "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, 0, NULL)",
                     (chat_id,)
                 )
@@ -496,27 +502,27 @@ def get_user_state(chat_id: int) -> Tuple[Optional[int], int, bool, Optional[str
 
 def update_user_state_hw(chat_id: int, hw_num: Optional[int]):
     with get_db_conn() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE user_state SET selected_hw = ? WHERE chat_id = ?", (hw_num, chat_id))
+        execute_query(conn, "UPDATE user_state SET selected_hw = ? WHERE chat_id = ?", (hw_num, chat_id))
         conn.commit()
 
 def set_pending_student_id(chat_id: int, student_id: Optional[str]) -> None:
     with get_db_conn() as conn:
-        cursor = conn.cursor()
         cursor = execute_query(conn, "SELECT chat_id FROM user_state WHERE chat_id = ?", (chat_id,))
         if not cursor.fetchone():
             if POSTGRES_URL:
-                cursor.execute(
+                execute_query(
+                    conn,
                     "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, FALSE, ?)",
                     (chat_id, student_id),
                 )
             else:
-                cursor.execute(
+                execute_query(
+                    conn,
                     "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, 0, ?)",
                     (chat_id, student_id),
                 )
         else:
-            cursor.execute("UPDATE user_state SET pending_student_id = ? WHERE chat_id = ?", (student_id, chat_id))
+            execute_query(conn, "UPDATE user_state SET pending_student_id = ? WHERE chat_id = ?", (student_id, chat_id))
         conn.commit()
 
 def clear_pending_student_id(chat_id: int) -> None:
@@ -525,8 +531,7 @@ def clear_pending_student_id(chat_id: int) -> None:
 def increment_attempts(chat_id: int) -> int:
     get_user_state(chat_id)
     with get_db_conn() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE user_state SET attempts = attempts + 1 WHERE chat_id = ?", (chat_id,))
+        execute_query(conn, "UPDATE user_state SET attempts = attempts + 1 WHERE chat_id = ?", (chat_id,))
         conn.commit()
         cursor = execute_query(conn, "SELECT attempts FROM user_state WHERE chat_id = ?", (chat_id,))
         row = cursor.fetchone()
@@ -535,14 +540,18 @@ def increment_attempts(chat_id: int) -> int:
 def blacklist_user(chat_id: int):
     get_user_state(chat_id)
     with get_db_conn() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE user_state SET is_blacklisted = TRUE WHERE chat_id = ?" if POSTGRES_URL else "UPDATE user_state SET is_blacklisted = 1 WHERE chat_id = ?", (chat_id,))
+        if POSTGRES_URL:
+            execute_query(conn, "UPDATE user_state SET is_blacklisted = TRUE WHERE chat_id = ?", (chat_id,))
+        else:
+            execute_query(conn, "UPDATE user_state SET is_blacklisted = 1 WHERE chat_id = ?", (chat_id,))
         conn.commit()
 
 def reset_attempts(chat_id: int):
     with get_db_conn() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE user_state SET attempts = 0, is_blacklisted = FALSE WHERE chat_id = ?" if POSTGRES_URL else "UPDATE user_state SET attempts = 0, is_blacklisted = 0 WHERE chat_id = ?", (chat_id,))
+        if POSTGRES_URL:
+            execute_query(conn, "UPDATE user_state SET attempts = 0, is_blacklisted = FALSE WHERE chat_id = ?", (chat_id,))
+        else:
+            execute_query(conn, "UPDATE user_state SET attempts = 0, is_blacklisted = 0 WHERE chat_id = ?", (chat_id,))
         conn.commit()
 
 def _parse_roster_csv_stream(stream) -> Tuple[Dict[str, str], Dict[str, str]]:
@@ -1008,7 +1017,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             attempts = increment_attempts(chat_id)
             if attempts >= MAX_ATTEMPTS:
                 blacklist_user(chat_id)
-                clear_pending_student_id(chat_id)
+                # Note: Preserve pending_student_id so TAs can identify which student_id was locked
                 await update.message.reply_text(
                     "🚫 *MAXIMUM ATTEMPTS EXCEEDED (5/5)*\n\n"
                     "Your account has been placed on the *Blacklist* due to multiple failed password attempts. "
@@ -1437,6 +1446,102 @@ async def missing_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.effective_chat.send_message(chunk, parse_mode=ParseMode.MARKDOWN)
 
 
+async def unblock_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to unblock a student by student_id or telegram chat_id."""
+    if not update.effective_chat or not update.message:
+        return
+    sender_chat_id = update.effective_chat.id
+    if not is_admin(sender_chat_id):
+        await update.message.reply_text("⛔ *Unauthorized:* This command is reserved for Course Teaching Assistants.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "ℹ️ *Usage:* `/unblock <student_id or chat_id>`\n\n"
+            "Examples:\n"
+            "• `/unblock 401001` (unblock by Student ID)\n"
+            "• `/unblock 6103177673` (unblock by Telegram Chat ID)\n\n"
+            "_(Clears lockout & resets failed password attempts so the student can use the bot)_",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    target = args[0].strip()
+    try:
+        from tma_admin import admin_unblock_user
+        if target.isdigit() and len(target) >= 8 and len(target) <= 12:
+            res = admin_unblock_user(chat_id=int(target))
+        else:
+            res = admin_unblock_user(student_id=target)
+
+        if res.get("found"):
+            target_desc = res.get("student_id") or res.get("chat_id")
+            await update.message.reply_text(
+                f"✅ *Student Unblocked Successfully*\n\n"
+                f"👤 *Target:* `{target_desc}`\n"
+                f"💬 *Chat ID:* `{res.get('chat_id')}`\n"
+                f"🔓 Lockout state and failed attempts have been cleared. Student can now interact with the bot.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text(
+                f"⚠️ *Not Found:* `{target}` was not found in registered students or active sessions.\n\n"
+                "If the student failed registration, please unblock using their Telegram Chat ID:\n"
+                "`/unblock <chat_id>`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+    except Exception as e:
+        logger.error("Admin /unblock error: %s", e)
+        await update.message.reply_text(f"❌ Failed to unblock: {e}")
+
+
+async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Admin command to unbind student session and clear lockouts."""
+    if not update.effective_chat or not update.message:
+        return
+    sender_chat_id = update.effective_chat.id
+    if not is_admin(sender_chat_id):
+        await update.message.reply_text("⛔ *Unauthorized:* This command is reserved for Course Teaching Assistants.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    args = context.args or []
+    if not args:
+        await update.message.reply_text(
+            "ℹ️ *Usage:* `/reset <student_id or chat_id>`\n\n"
+            "Unbinds student's Telegram session and clears failed attempts so they can re-register from scratch.\n"
+            "_(Existing homework submissions are safely preserved in the database)_",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    target = args[0].strip()
+    try:
+        from tma_admin import admin_reset_student
+        if target.isdigit() and len(target) >= 8 and len(target) <= 12:
+            res = admin_reset_student(chat_id=int(target))
+        else:
+            res = admin_reset_student(student_id=target)
+
+        if res.get("found"):
+            target_desc = res.get("student_id") or res.get("chat_id")
+            await update.message.reply_text(
+                f"✅ *Student Session Reset Successfully*\n\n"
+                f"👤 *Target:* `{target_desc}`\n"
+                f"💬 *Chat ID:* `{res.get('chat_id')}`\n"
+                f"🔓 Registration unbound & lockout cleared. The student can now send /start to register again.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text(
+                f"⚠️ *Not Found:* `{target}` was not found in registered students or active sessions.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+    except Exception as e:
+        logger.error("Admin /reset error: %s", e)
+        await update.message.reply_text(f"❌ Failed to reset: {e}")
+
+
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Admin command: Open the Telegram Mini App TA Control Hub."""
     if not update.effective_chat:
@@ -1490,7 +1595,7 @@ class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(b'{"status":"ok","service":"ta-homework-bot","version":"4.0"}')
+        self.wfile.write(b'{"status":"ok","service":"ta-homework-bot","version":"10.1.0"}')
 
     def log_message(self, format: str, *args: object) -> None:
         # Suppress periodic health-check access logs
@@ -1524,6 +1629,8 @@ def create_app(token: str | None = None) -> Application:
                 BotCommand("cancel", "Cancel current input or selection"),
                 BotCommand("id", "Show your Telegram Chat ID"),
                 BotCommand("admin", "Open TA Control Hub Mini App"),
+                BotCommand("unblock", "Admin: Unblock student lockout"),
+                BotCommand("reset", "Admin: Reset student session"),
             ])
             logger.info("Bot commands successfully registered with Telegram.")
         except Exception as e:
@@ -1536,6 +1643,8 @@ def create_app(token: str | None = None) -> Application:
     app.add_handler(CommandHandler('status', status_command))
     app.add_handler(CommandHandler('missing', missing_command))
     app.add_handler(CommandHandler('admin', admin_command))
+    app.add_handler(CommandHandler('unblock', unblock_command))
+    app.add_handler(CommandHandler('reset', reset_command))
     app.add_handler(CallbackQueryHandler(handle_hw_button, pattern=r'^select_hw_\d+$'))
     app.add_handler(CallbackQueryHandler(handle_status_button, pattern=r'^status$'))
     app.add_handler(CallbackQueryHandler(handle_main_menu, pattern=r'^main_menu$'))

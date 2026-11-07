@@ -499,10 +499,14 @@ class MockChat:
         mock_msg.message_id = 999
         return mock_msg
 
+    async def reply_text(self, text, parse_mode=None, reply_markup=None):
+        return await self.send_message(text, parse_mode=parse_mode, reply_markup=reply_markup)
+
 
 class MockUpdate:
     def __init__(self, chat_id):
         self.effective_chat = MockChat(chat_id)
+        self.message = self.effective_chat
 
 
 @pytest.mark.anyio
@@ -624,3 +628,258 @@ def test_get_app_html_fallback(tmp_path, monkeypatch):
     html = tma_admin.get_app_html()
     assert "TA Control Hub" in html
     assert "not found" in html.lower()
+
+
+# ---------------------------------------------------------------------------
+# 6. Unblock & Reset Verification Tests
+# ---------------------------------------------------------------------------
+
+def test_admin_unblock_by_student_id(client):
+    """Verify unblocking a registered student clears user_state lockout while preserving student registration."""
+    chat_id = 5555
+    student_id = "4001"
+    with bot.get_db_conn() as conn:
+        bot.execute_query(
+            conn,
+            "INSERT INTO students (chat_id, student_id, name, registered_at) VALUES (?, ?, ?, ?)",
+            (chat_id, student_id, "Alice Test", bot.format_tehran_timestamp()),
+        )
+        conn.commit()
+    bot.set_pending_student_id(chat_id, student_id)
+    bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    admin_init = generate_init_data(TEST_BOT_TOKEN, ADMIN_USER_ID)
+    res = client.post(
+        "/api/admin/unblock",
+        headers={"X-Telegram-Init-Data": admin_init},
+        json={"student_id": student_id},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    assert data["found"] is True
+    assert data["student_id"] == student_id
+    assert data["chat_id"] == chat_id
+
+    # Verify student is still registered
+    st = bot.get_student_by_chat_id(chat_id)
+    assert st is not None
+    assert st[1] == student_id
+
+    # Verify lockout is cleared
+    state = bot.get_user_state(chat_id)
+    assert state[1] == 0
+    assert state[2] is False
+
+
+def test_admin_unblock_by_chat_id(client):
+    """Verify unblocking directly via numeric chat_id."""
+    chat_id = 6103177673
+    bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    admin_init = generate_init_data(TEST_BOT_TOKEN, ADMIN_USER_ID)
+    res = client.post(
+        "/api/admin/unblock",
+        headers={"X-Telegram-Init-Data": admin_init},
+        json={"chat_id": chat_id},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    assert data["found"] is True
+    assert data["chat_id"] == chat_id
+
+    state = bot.get_user_state(chat_id)
+    assert state[1] == 0
+    assert state[2] is False
+
+
+def test_admin_unblock_not_found(client):
+    """Verify 404 is returned when attempting to unblock a non-existent student/session."""
+    admin_init = generate_init_data(TEST_BOT_TOKEN, ADMIN_USER_ID)
+    res = client.post(
+        "/api/admin/unblock",
+        headers={"X-Telegram-Init-Data": admin_init},
+        json={"student_id": "999999"},
+    )
+    assert res.status_code == 404
+    assert "not found" in res.json()["detail"].lower()
+
+
+def test_admin_reset_by_chat_id(client):
+    """Verify admin reset by numeric chat_id unbinds registration and clears lockout."""
+    chat_id = 6666
+    student_id = "4002"
+    with bot.get_db_conn() as conn:
+        bot.execute_query(
+            conn,
+            "INSERT INTO students (chat_id, student_id, name, registered_at) VALUES (?, ?, ?, ?)",
+            (chat_id, student_id, "Bob Test", bot.format_tehran_timestamp()),
+        )
+        conn.commit()
+    bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    admin_init = generate_init_data(TEST_BOT_TOKEN, ADMIN_USER_ID)
+    res = client.post(
+        "/api/admin/reset",
+        headers={"X-Telegram-Init-Data": admin_init},
+        json={"chat_id": chat_id},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    assert data["found"] is True
+
+    # Student is unbound
+    assert bot.get_student_by_chat_id(chat_id) is None
+    # State is reset
+    state = bot.get_user_state(chat_id)
+    assert state[1] == 0
+    assert state[2] is False
+
+
+def test_admin_reset_not_found(client):
+    """Verify 404 when attempting to reset a non-existent user."""
+    admin_init = generate_init_data(TEST_BOT_TOKEN, ADMIN_USER_ID)
+    res = client.post(
+        "/api/admin/reset",
+        headers={"X-Telegram-Init-Data": admin_init},
+        json={"student_id": "999999"},
+    )
+    assert res.status_code == 404
+    assert "not found" in res.json()["detail"].lower()
+
+
+def test_roster_matrix_surfaces_locked_unregistered_student():
+    """Verify that an unregistered student with failed attempts shows is_locked=True and pending chat_id in matrix."""
+    chat_id = 8888
+    student_id = "4003"
+    bot.set_pending_student_id(chat_id, student_id)
+    for _ in range(5):
+        bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    roster_matrix = tma_admin.get_admin_roster()
+    target_entry = next((s for s in roster_matrix if s["student_id"] == student_id), None)
+    assert target_entry is not None
+    assert target_entry["is_registered"] is False
+    assert target_entry["chat_id"] == chat_id
+    assert target_entry["attempts"] == 5
+    assert target_entry["is_blacklisted"] is True
+    assert target_entry["is_locked"] is True
+
+
+def test_roster_matrix_surfaces_standalone_locked_user():
+    """Verify that a locked chat ID not mapped to any known student ID appears as TG-<chat_id> in matrix."""
+    chat_id = 998877
+    for _ in range(5):
+        bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    roster_matrix = tma_admin.get_admin_roster()
+    target_entry = next((s for s in roster_matrix if s["student_id"] == f"TG-{chat_id}"), None)
+    assert target_entry is not None
+    assert target_entry["is_registered"] is False
+    assert target_entry["chat_id"] == chat_id
+    assert target_entry["is_locked"] is True
+
+
+@pytest.mark.anyio
+async def test_bot_unblock_command_flows():
+    """Test Telegram bot /unblock command handling for auth, usage, success, and not found."""
+    context = unittest.mock.MagicMock()
+
+    # 1. Unauthorized
+    up_unauth = MockUpdate(chat_id=NON_ADMIN_USER_ID)
+    await bot.unblock_command(up_unauth, context)
+    assert "Unauthorized" in up_unauth.effective_chat.messages[0]["text"]
+
+    # 2. Admin missing args
+    up_no_args = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = []
+    await bot.unblock_command(up_no_args, context)
+    assert "/unblock <student_id or chat_id>" in up_no_args.effective_chat.messages[0]["text"]
+
+    # 3. Admin valid unblock by student_id
+    chat_id = 4444
+    student_id = "4001"
+    with bot.get_db_conn() as conn:
+        bot.execute_query(
+            conn,
+            "INSERT INTO students (chat_id, student_id, name, registered_at) VALUES (?, ?, ?, ?)",
+            (chat_id, student_id, "Alice Test", bot.format_tehran_timestamp()),
+        )
+        conn.commit()
+    bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    up_success = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = [student_id]
+    await bot.unblock_command(up_success, context)
+    assert "Student Unblocked Successfully" in up_success.effective_chat.messages[0]["text"]
+    assert str(chat_id) in up_success.effective_chat.messages[0]["text"]
+    assert bot.get_user_state(chat_id)[2] is False
+
+    # 4. Admin unblock by chat_id
+    chat_id_standalone = 6103177673
+    bot.increment_attempts(chat_id_standalone)
+    bot.blacklist_user(chat_id_standalone)
+
+    up_cid_success = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = [str(chat_id_standalone)]
+    await bot.unblock_command(up_cid_success, context)
+    assert "Student Unblocked Successfully" in up_cid_success.effective_chat.messages[0]["text"]
+    assert bot.get_user_state(chat_id_standalone)[2] is False
+
+    # 5. Admin target not found
+    up_not_found = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = ["NON_EXISTENT_SID"]
+    await bot.unblock_command(up_not_found, context)
+    assert "Not Found" in up_not_found.effective_chat.messages[0]["text"]
+
+
+@pytest.mark.anyio
+async def test_bot_reset_command_flows():
+    """Test Telegram bot /reset command handling for auth, usage, success, and not found."""
+    context = unittest.mock.MagicMock()
+
+    # 1. Unauthorized
+    up_unauth = MockUpdate(chat_id=NON_ADMIN_USER_ID)
+    await bot.reset_command(up_unauth, context)
+    assert "Unauthorized" in up_unauth.effective_chat.messages[0]["text"]
+
+    # 2. Admin missing args
+    up_no_args = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = []
+    await bot.reset_command(up_no_args, context)
+    assert "/reset <student_id or chat_id>" in up_no_args.effective_chat.messages[0]["text"]
+
+    # 3. Admin valid reset by student_id
+    chat_id = 3333
+    student_id = "4002"
+    with bot.get_db_conn() as conn:
+        bot.execute_query(
+            conn,
+            "INSERT INTO students (chat_id, student_id, name, registered_at) VALUES (?, ?, ?, ?)",
+            (chat_id, student_id, "Bob Test", bot.format_tehran_timestamp()),
+        )
+        conn.commit()
+    bot.increment_attempts(chat_id)
+    bot.blacklist_user(chat_id)
+
+    up_success = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = [student_id]
+    await bot.reset_command(up_success, context)
+    assert "Student Session Reset Successfully" in up_success.effective_chat.messages[0]["text"]
+    assert bot.get_student_by_chat_id(chat_id) is None
+    assert bot.get_user_state(chat_id)[2] is False
+
+    # 4. Admin target not found
+    up_not_found = MockUpdate(chat_id=ADMIN_USER_ID)
+    context.args = ["NON_EXISTENT_SID"]
+    await bot.reset_command(up_not_found, context)
+    assert "Not Found" in up_not_found.effective_chat.messages[0]["text"]
+

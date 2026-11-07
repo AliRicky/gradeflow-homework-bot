@@ -146,7 +146,7 @@ def test_password_failure_and_lockout():
     state5 = bot.get_user_state(chat_id)
     assert state5[1] == 5
     assert state5[2] is True  # Blacklisted!
-    assert state5[3] is None  # pending_student_id cleared
+    assert state5[3] == "401002"  # pending_student_id preserved for TA lockout resolution
     assert "MAXIMUM ATTEMPTS EXCEEDED" in up_fail5.message.replies[0]["text"]
     assert "Blacklist" in up_fail5.message.replies[0]["text"]
 

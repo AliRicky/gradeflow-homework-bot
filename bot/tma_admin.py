@@ -298,10 +298,17 @@ def get_admin_roster() -> List[Dict[str, Any]]:
             }
 
         # User state map: chat_id -> (attempts, is_blacklisted)
+        # Also map pending_student_id -> (chat_id, attempts, is_blacklisted) for unregistered students
         user_state_map: Dict[int, Tuple[int, bool]] = {}
-        cursor = bot.execute_query(conn, "SELECT chat_id, attempts, is_blacklisted FROM user_state")
+        user_state_by_pending: Dict[str, Tuple[int, int, bool]] = {}
+        cursor = bot.execute_query(conn, "SELECT chat_id, attempts, is_blacklisted, pending_student_id FROM user_state")
         for row in cursor.fetchall():
-            user_state_map[row[0]] = (row[1], bool(row[2]))
+            cid = row[0]
+            att = row[1]
+            blk = bool(row[2])
+            user_state_map[cid] = (att, blk)
+            if row[3]:
+                user_state_by_pending[str(row[3]).strip()] = (cid, att, blk)
 
     # Merge roster and registered students
     all_sids = list(roster.keys())
@@ -324,6 +331,9 @@ def get_admin_roster() -> List[Dict[str, Any]]:
         is_blacklisted = False
         if chat_id and chat_id in user_state_map:
             attempts, is_blacklisted = user_state_map[chat_id]
+        elif not is_registered and sid in user_state_by_pending:
+            # Student attempted to register, link their pending chat_id and lockout state!
+            chat_id, attempts, is_blacklisted = user_state_by_pending[sid]
 
         student_subs = submissions_map.get(sid, {})
         student_grades = all_grades_map.get(sid, {})
@@ -355,7 +365,144 @@ def get_admin_roster() -> List[Dict[str, Any]]:
             "submissions": subs,
         })
 
+    # Append any standalone locked Telegram chat IDs not mapped to known roster students
+    mapped_chat_ids = {item["chat_id"] for item in matrix if item.get("chat_id")}
+    for cid, (att, blk) in user_state_map.items():
+        if (blk or att >= 3) and cid not in mapped_chat_ids:
+            matrix.append({
+                "student_id": f"TG-{cid}",
+                "name": f"Unregistered User ({cid})",
+                "is_registered": False,
+                "chat_id": cid,
+                "registered_at": None,
+                "attempts": att,
+                "is_blacklisted": blk,
+                "is_locked": True,
+                "submissions": {
+                    str(hw): {
+                        "submitted": False,
+                        "file_name": None,
+                        "submitted_at": None,
+                        "edit_count": 0,
+                        "grade": None,
+                    } for hw in range(1, 6)
+                },
+            })
+
     return matrix
+
+
+def admin_unblock_user(
+    student_id: Optional[str] = None,
+    chat_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Clear lockout state (attempts = 0, is_blacklisted = FALSE) in `user_state`
+    WITHOUT deleting the student from `students` table.
+    """
+    if not student_id and not chat_id:
+        raise ValueError("Either student_id or chat_id must be provided")
+
+    # If student_id looks like a Telegram chat_id (e.g. 8-12 digits) and chat_id is None
+    if student_id and not chat_id:
+        sid_str = str(student_id).strip()
+        if sid_str.isdigit() and len(sid_str) >= 8 and len(sid_str) <= 12:
+            chat_id = int(sid_str)
+            student_id = None
+
+    resolved_chat_id = chat_id
+    resolved_student_id = student_id
+    found = False
+
+    with bot.get_db_conn() as conn:
+        if student_id:
+            cursor = bot.execute_query(
+                conn,
+                "SELECT chat_id, student_id, name FROM students WHERE student_id = ?",
+                (str(student_id).strip(),),
+            )
+            row = cursor.fetchone()
+            if row:
+                found = True
+                resolved_chat_id = row[0]
+                resolved_student_id = row[1]
+            else:
+                cursor = bot.execute_query(
+                    conn,
+                    "SELECT chat_id FROM user_state WHERE pending_student_id = ?",
+                    (str(student_id).strip(),),
+                )
+                p_row = cursor.fetchone()
+                if p_row:
+                    found = True
+                    resolved_chat_id = p_row[0]
+
+        if chat_id:
+            found = True
+            cursor = bot.execute_query(
+                conn,
+                "SELECT student_id, name FROM students WHERE chat_id = ?",
+                (chat_id,),
+            )
+            row = cursor.fetchone()
+            if row:
+                resolved_student_id = row[0]
+            else:
+                cursor = bot.execute_query(
+                    conn,
+                    "SELECT pending_student_id FROM user_state WHERE chat_id = ?",
+                    (chat_id,),
+                )
+                p_row = cursor.fetchone()
+                if p_row and p_row[0]:
+                    resolved_student_id = p_row[0]
+
+        if resolved_chat_id:
+            c = bot.execute_query(conn, "SELECT chat_id FROM user_state WHERE chat_id = ?", (resolved_chat_id,))
+            if c.fetchone():
+                if bot.POSTGRES_URL:
+                    bot.execute_query(
+                        conn,
+                        "UPDATE user_state SET attempts = 0, is_blacklisted = FALSE, selected_hw = NULL WHERE chat_id = ?",
+                        (resolved_chat_id,),
+                    )
+                else:
+                    bot.execute_query(
+                        conn,
+                        "UPDATE user_state SET attempts = 0, is_blacklisted = 0, selected_hw = NULL WHERE chat_id = ?",
+                        (resolved_chat_id,),
+                    )
+            else:
+                if bot.POSTGRES_URL:
+                    bot.execute_query(
+                        conn,
+                        "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, FALSE, NULL)",
+                        (resolved_chat_id,),
+                    )
+                else:
+                    bot.execute_query(
+                        conn,
+                        "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, 0, NULL)",
+                        (resolved_chat_id,),
+                    )
+            conn.commit()
+            return {
+                "status": "ok",
+                "message": f"Lockout cleared for {resolved_student_id or resolved_chat_id}. Account is unblocked and attempts reset.",
+                "student_id": resolved_student_id,
+                "chat_id": resolved_chat_id,
+                "found": True,
+            }
+
+        conn.commit()
+
+    return {
+        "status": "not_found",
+        "message": f"Target '{student_id or chat_id}' was not found in registered students or active sessions. Please provide their Telegram Chat ID to unblock directly.",
+        "student_id": student_id,
+        "chat_id": chat_id,
+        "found": False,
+    }
 
 
 def admin_reset_student(
@@ -369,38 +516,47 @@ def admin_reset_student(
     if not student_id and not chat_id:
         raise ValueError("Either student_id or chat_id must be provided")
 
+    # If student_id looks like a Telegram chat_id (e.g. 8-12 digits) and chat_id is None
+    if student_id and not chat_id:
+        sid_str = str(student_id).strip()
+        if sid_str.isdigit() and len(sid_str) >= 8 and len(sid_str) <= 12:
+            chat_id = int(sid_str)
+            student_id = None
+
     resolved_chat_id = chat_id
     resolved_student_id = student_id
     found = False
+    unbound = False
+    unblocked = False
 
     with bot.get_db_conn() as conn:
-        cursor = conn.cursor()
-
         if student_id:
             cursor = bot.execute_query(
                 conn,
                 "SELECT chat_id, student_id, name FROM students WHERE student_id = ?",
-                (student_id,),
+                (str(student_id).strip(),),
             )
             row = cursor.fetchone()
             if row:
                 found = True
+                unbound = True
                 resolved_chat_id = row[0]
                 resolved_student_id = row[1]
-                cursor.execute("DELETE FROM students WHERE student_id = ?", (row[1],))
+                bot.execute_query(conn, "DELETE FROM students WHERE student_id = ?", (row[1],))
             else:
                 # Check user_state pending_student_id if not yet registered
                 cursor = bot.execute_query(
                     conn,
                     "SELECT chat_id FROM user_state WHERE pending_student_id = ?",
-                    (student_id,),
+                    (str(student_id).strip(),),
                 )
                 p_row = cursor.fetchone()
                 if p_row:
-                    resolved_chat_id = p_row[0]
                     found = True
+                    resolved_chat_id = p_row[0]
 
-        elif chat_id:
+        if chat_id:
+            found = True
             cursor = bot.execute_query(
                 conn,
                 "SELECT chat_id, student_id, name FROM students WHERE chat_id = ?",
@@ -408,32 +564,77 @@ def admin_reset_student(
             )
             row = cursor.fetchone()
             if row:
-                found = True
-                resolved_chat_id = row[0]
+                unbound = True
                 resolved_student_id = row[1]
-                cursor.execute("DELETE FROM students WHERE chat_id = ?", (chat_id,))
+                bot.execute_query(conn, "DELETE FROM students WHERE chat_id = ?", (chat_id,))
             else:
-                found = True
+                cursor = bot.execute_query(
+                    conn,
+                    "SELECT pending_student_id FROM user_state WHERE chat_id = ?",
+                    (chat_id,),
+                )
+                p_row = cursor.fetchone()
+                if p_row and p_row[0]:
+                    resolved_student_id = p_row[0]
 
         if resolved_chat_id:
-            if bot.POSTGRES_URL:
-                cursor.execute(
-                    "UPDATE user_state SET attempts = 0, is_blacklisted = FALSE, selected_hw = NULL, pending_student_id = NULL WHERE chat_id = ?",
-                    (resolved_chat_id,),
-                )
+            c = bot.execute_query(conn, "SELECT chat_id FROM user_state WHERE chat_id = ?", (resolved_chat_id,))
+            if c.fetchone():
+                if bot.POSTGRES_URL:
+                    bot.execute_query(
+                        conn,
+                        "UPDATE user_state SET attempts = 0, is_blacklisted = FALSE, selected_hw = NULL, pending_student_id = NULL WHERE chat_id = ?",
+                        (resolved_chat_id,),
+                    )
+                else:
+                    bot.execute_query(
+                        conn,
+                        "UPDATE user_state SET attempts = 0, is_blacklisted = 0, selected_hw = NULL, pending_student_id = NULL WHERE chat_id = ?",
+                        (resolved_chat_id,),
+                    )
             else:
-                cursor.execute(
-                    "UPDATE user_state SET attempts = 0, is_blacklisted = 0, selected_hw = NULL, pending_student_id = NULL WHERE chat_id = ?",
-                    (resolved_chat_id,),
-                )
+                if bot.POSTGRES_URL:
+                    bot.execute_query(
+                        conn,
+                        "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, FALSE, NULL)",
+                        (resolved_chat_id,),
+                    )
+                else:
+                    bot.execute_query(
+                        conn,
+                        "INSERT INTO user_state (chat_id, selected_hw, attempts, is_blacklisted, pending_student_id) VALUES (?, NULL, 0, 0, NULL)",
+                        (resolved_chat_id,),
+                    )
+            unblocked = True
+        elif not found:
+            conn.commit()
+            return {
+                "status": "not_found",
+                "message": f"Student '{student_id or chat_id}' was not found in registered students or active sessions. Please provide their Telegram Chat ID to unblock directly.",
+                "student_id": student_id,
+                "chat_id": chat_id,
+                "found": False,
+                "unbound": False,
+                "unblocked": False,
+            }
+
         conn.commit()
+
+    actions = []
+    if unbound:
+        actions.append("session unbound")
+    if unblocked:
+        actions.append("lockout cleared")
+    action_str = " and ".join(actions) if actions else "state reset"
 
     return {
         "status": "ok",
-        "message": f"Student {resolved_student_id or resolved_chat_id} unbind and lockout reset completed successfully",
+        "message": f"Student {resolved_student_id or resolved_chat_id} ({action_str}) completed successfully.",
         "student_id": resolved_student_id,
         "chat_id": resolved_chat_id,
-        "found": found,
+        "found": True,
+        "unbound": unbound,
+        "unblocked": unblocked,
     }
 
 
@@ -623,11 +824,37 @@ def create_admin_router(get_bot_func: Optional[Callable[[], Any]] = None) -> API
 
         try:
             result = admin_reset_student(student_id=req.student_id, chat_id=req.chat_id)
+            if not result.get("found"):
+                raise HTTPException(status_code=404, detail=result.get("message", "Target not found"))
             return result
+        except HTTPException:
+            raise
         except ValueError as ve:
             raise HTTPException(status_code=400, detail=str(ve))
         except Exception as e:
             logger.error("Student reset failure: %s", e)
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @router.post("/api/admin/unblock")
+    async def post_unblock(
+        req: ResetRequest,
+        admin_user: Dict[str, Any] = Depends(verify_admin_request),
+    ):
+        """Unblock student in `user_state` without unbinding their student registration."""
+        if not req.student_id and not req.chat_id:
+            raise HTTPException(status_code=400, detail="Either student_id or chat_id is required")
+
+        try:
+            result = admin_unblock_user(student_id=req.student_id, chat_id=req.chat_id)
+            if not result.get("found"):
+                raise HTTPException(status_code=404, detail=result.get("message", "Target not found"))
+            return result
+        except HTTPException:
+            raise
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except Exception as e:
+            logger.error("Student unblock failure: %s", e)
             raise HTTPException(status_code=500, detail=str(e))
 
     return router

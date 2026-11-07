@@ -1412,8 +1412,22 @@
       <div class="card">
         <div class="card-title">⚙️ Student Management & Reset</div>
         <div class="form-group">
-          <label for="studentLookup">Search Student (ID or Name)</label>
-          <input type="text" id="studentLookup" placeholder="Type student ID or name to inspect..." oninput="onStudentLookupInput()" />
+          <label for="studentLookup">Search Student (ID, Name, or Chat ID)</label>
+          <input type="text" id="studentLookup" placeholder="Type student ID, name, or Telegram Chat ID..." oninput="onStudentLookupInput()" />
+        </div>
+      </div>
+
+      <!-- Direct Unblock by Telegram Chat ID Card -->
+      <div class="card" style="margin-top: 14px; border: 1px dashed var(--wm-border-strong);">
+        <div class="card-title" style="font-size: 14px; margin-bottom: 8px;">⚡ Direct Unblock by Telegram Chat ID</div>
+        <div style="font-size: 12px; color: var(--text-sec); margin-bottom: 12px;">
+          If an unregistered student was locked out before completing registration, enter their Telegram Chat ID here to immediately clear their blacklist &amp; reset failed attempts:
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="number" id="directChatIdInput" placeholder="e.g. 6103177673" style="flex: 1; font-family: ui-monospace, monospace;" />
+          <button class="btn-primary" style="width: auto; padding: 0 18px; min-height: 42px;" onclick="directUnblockChatId()">
+            <span>🔓 Unblock</span>
+          </button>
         </div>
       </div>
 
@@ -2053,7 +2067,11 @@
         document.getElementById('studentDetailCard').style.display = 'none';
         return;
       }
-      const found = rosterData.find(s => s.student_id.toLowerCase().includes(val) || s.name.toLowerCase().includes(val));
+      const found = rosterData.find(s => 
+        (s.student_id && s.student_id.toLowerCase().includes(val)) || 
+        (s.name && s.name.toLowerCase().includes(val)) ||
+        (s.chat_id && s.chat_id.toString().includes(val))
+      );
       if (found) {
         renderStudentProfile(found);
       }
@@ -2130,20 +2148,26 @@
       if (!selectedStudent) return;
       openModal(
         'Confirm Student Reset',
-        `Are you sure you want to <b>unbind</b> student <b>${selectedStudent.name} (${selectedStudent.student_id})</b>?<br/><br/>` +
-        `This unbinds their Telegram chat account and clears failed authentication lockouts so they can register cleanly.`,
+        `Are you sure you want to <b>reset / unblock</b> student <b>${selectedStudent.name} (${selectedStudent.student_id})</b>?<br/><br/>` +
+        `This clears failed password attempts and lockout states so they can use the bot.<br/>` +
+        `_(If previously registered, their Telegram chat binding will be unlinked so they can re-register)_`,
         '🔓 Reset & Unblock',
         true,
-        () => resetStudent(selectedStudent.student_id)
+        () => resetStudent(selectedStudent.student_id, selectedStudent.chat_id)
       );
     }
 
-    async function resetStudent(studentId) {
+    async function resetStudent(studentId, chatId) {
       try {
+        const payload = {};
+        if (studentId && !studentId.startsWith('TG-')) payload.student_id = studentId;
+        if (chatId) payload.chat_id = parseInt(chatId, 10);
+        else if (studentId && studentId.startsWith('TG-')) payload.chat_id = parseInt(studentId.replace('TG-', ''), 10);
+
         const res = await fetch('/api/admin/reset', {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ student_id: studentId })
+          body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
@@ -2152,10 +2176,41 @@
         await fetchMetrics();
         await fetchRoster();
 
-        const updated = rosterData.find(s => s.student_id === studentId);
+        const updated = rosterData.find(s => s.student_id === studentId || (chatId && s.chat_id === chatId));
         if (updated) renderStudentProfile(updated);
+        else document.getElementById('studentDetailCard').style.display = 'none';
       } catch (err) {
         showToast(`❌ Reset failed: ${err.message}`);
+      }
+    }
+
+    async function directUnblockChatId() {
+      const input = document.getElementById('directChatIdInput');
+      const val = input.value.trim();
+      if (!val) {
+        showToast('⚠️ Please enter a numeric Telegram Chat ID');
+        return;
+      }
+      const chatId = parseInt(val, 10);
+      if (isNaN(chatId)) {
+        showToast('⚠️ Invalid Chat ID');
+        return;
+      }
+      try {
+        const res = await fetch('/api/admin/reset', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ chat_id: chatId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+
+        showToast(`✅ ${data.message}`);
+        input.value = '';
+        await fetchMetrics();
+        await fetchRoster();
+      } catch (err) {
+        showToast(`❌ Unblock failed: ${err.message}`);
       }
     }
 
