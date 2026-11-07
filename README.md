@@ -1,5 +1,7 @@
 # Unified Educational Platform: Grade Flow Proportional Grading App & Telegram Homework Collector Bot with Control Dashboard
 
+[![Version](https://img.shields.io/badge/version-2.4.0-blue.svg)](docs/USER_AND_ADMIN_TUTORIAL.md)
+[![Tests Passing](https://img.shields.io/badge/tests-68%2F68%20passed-brightgreen.svg)](bot/tests/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
@@ -10,21 +12,25 @@
 
 A unified, production-grade academic management ecosystem seamlessly bridging **Telegram-based student submissions** with a **reactive Proportional Grading Web Application** and a **Control Dashboard Telegram Mini App (TMA)** for course instructors and Teaching Assistants.
 
+> [!TIP] Complete User & Administrator Tutorial
+> Detailed operational workflows for students, course instructors, and teaching assistants are codified in the **[Complete User & Administrator Tutorial](docs/USER_AND_ADMIN_TUTORIAL.md)**. Covers step-by-step bot onboarding, two-stage password authentication, submission workflows, TMA Control Hub management (Unblock vs Reset), Grade Flow proportional calculation engine, and 1-step disaster rollback commands.
+
 ---
 
 ## 📑 Table of Contents
-1. [System Architecture](#-system-architecture)
-2. [Repository Structure](#-repository-structure)
-3. [Core Subsystems](#-core-subsystems)
+1. [User & Administrator Tutorial](docs/USER_AND_ADMIN_TUTORIAL.md)
+2. [System Architecture](#-system-architecture)
+3. [Repository Structure](#-repository-structure)
+4. [Core Subsystems](#-core-subsystems)
    - [Telegram Homework Collector & TMA Admin Hub](#1-telegram-homework-collector--tma-admin-hub)
    - [Grade Flow Web Application & Proportional Engine](#2-grade-flow-web-application--proportional-engine)
    - [Unified Supabase PostgreSQL Data Layer](#3-unified-supabase-postgresql-data-layer)
-4. [Adaptive UI Design System](#-adaptive-dark-mode-design-system)
-5. [Data Contracts & Schema Mapping](#-data-contracts--schema-mapping)
-6. [Quickstart & Local Development](#-quickstart--local-development)
-7. [Running Test Suites](#-running-test-suites)
-8. [Production Deployment](#-production-deployment)
-9. [Clean Public Repo Security Doctrine](#-clean-public-repo-security-doctrine)
+5. [Adaptive UI Design System](#-adaptive-dark-mode-design-system)
+6. [Data Contracts & Schema Mapping](#-data-contracts--schema-mapping)
+7. [Quickstart & Local Development](#-quickstart--local-development)
+8. [Running Test Suites](#-running-test-suites)
+9. [Production Deployment](#-production-deployment)
+10. [Clean Public Repo Security Doctrine](#-clean-public-repo-security-doctrine)
 
 ---
 
