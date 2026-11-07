@@ -67,3 +67,5 @@ Thumbs.db
 *~
 .agents/
 memory/
+.temp/
+supabase/.temp/
